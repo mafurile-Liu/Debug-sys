@@ -1,0 +1,11 @@
+simv
+simv.daidir/
+csrc/
+ucli.key
+vc_hdrs.h
+*.vpd
+*.vcd
+*.fsdb
+*.log
+build/
+.tools/
