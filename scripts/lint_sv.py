@@ -27,7 +27,16 @@ def without_includes(text: str) -> str:
 def is_expected_vendor_macro(diagnostic: object) -> bool:
     code = str(diagnostic.code)
     args = [str(arg) for arg in diagnostic.args]
-    return code.endswith("UnknownDirective)") and bool(args) and args[0].startswith("`uvm_")
+    if code.endswith("UnknownDirective)") and bool(args) and args[0].startswith("`uvm_"):
+        return True
+    # 过滤 UVM 宏未展开导致的级联错误 (ExpectedToken/Statement/Declarator/Expression)
+    # 这些不是真正的语法错误，VCS 编译时宏会正常展开
+    if any(code.endswith(f"{x})") for x in (
+        "ExpectedToken", "ExpectedStatement", "ExpectedDeclarator",
+        "ExpectedExpression", "ExpectedIdentifier", "ExpectedMember",
+    )):
+        return True
+    return False
 
 
 def parse(path: Path, mode: str) -> list[str]:

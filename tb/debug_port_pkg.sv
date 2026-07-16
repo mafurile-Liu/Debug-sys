@@ -21,12 +21,14 @@ package debug_port_pkg;
   `include "debug_sys_env.sv"
   `include "debug_reset_sequence.sv"
   `include "debug_entry_sequence.sv"
+  `include "debug_apb_xfer_sequence.sv"
   `include "debug_port_base_test.sv"
   `include "debug_port_smoke_test.sv"
   `include "debug_entry_test.sv"
   `include "debug_reg_access_test.sv"
   `include "debug_trace_test.sv"
   `include "debug_full_test.sv"
+  `include "debug_apb_xfer_test.sv"
 endpackage
 
 `endif

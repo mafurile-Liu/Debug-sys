@@ -73,6 +73,12 @@ class debug_port_base_test extends uvm_test;
     trace_seq = svt_atb_random_system_sequence::type_id::create("trace_seq");
     trace_seq.start(env.vseqr.atb_sequencer);
   endtask
+
+  virtual task run_apb_xfer();
+    debug_apb_xfer_sequence apb_seq;
+    apb_seq = debug_apb_xfer_sequence::type_id::create("apb_seq");
+    apb_seq.start(env.apb_master_env.master.sequencer);
+  endtask
 endclass
 
 `endif

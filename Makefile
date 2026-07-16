@@ -35,7 +35,7 @@ AMBA_INCDIRS := \
   $(foreach d,$(wildcard $(AMBA_VIP)/*/sverilog/include),+incdir+$(d)) \
   $(foreach d,$(wildcard $(AMBA_VIP)/*/sverilog/src/vcs),+incdir+$(d))
 
-TB_INCDIRS := +incdir+../../tb +incdir+../../tb/env +incdir+../../tb/tests
+TB_INCDIRS := +incdir+../../tb +incdir+../../tb/env +incdir+../../tb/tests 
 WAVE_DEFINE := $(if $(filter 1,$(WAVES)),+define+WAVES_VCD,)
 
 .PHONY: all check-env check lint build run clean

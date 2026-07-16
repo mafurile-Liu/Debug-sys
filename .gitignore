@@ -9,3 +9,9 @@ vc_hdrs.h
 *.log
 build/
 .tools/
+
+# Python simulation output
+sim_out/
+
+# VIP reference (contains proprietary paths, do not commit)
+VIP_REFERENCE.md

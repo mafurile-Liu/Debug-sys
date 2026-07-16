@@ -17,6 +17,8 @@ EXTERNAL_INCLUDES = {
     "svt_axi.uvm.pkg",
     "svt_atb.pkg",
     "uvm_macros.svh",
+    "uvm_pkg.sv",
+    "svt_apb_if.svi",
 }
 
 
@@ -113,3 +115,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
