@@ -5,6 +5,7 @@ class debug_sys_env extends uvm_env;
   debug_sys_cfg cfg;
   debug_sys_virtual_sequencer vseqr;
   debug_sys_scoreboard scoreboard;
+  debug_sys_predictor predictor;
   debug_sys_reg_block regmodel;
 
 `ifdef DEBUG_PORT_JTAG
@@ -49,7 +50,12 @@ class debug_sys_env extends uvm_env;
     if (cfg.enable_atb) build_atb();
 
     scoreboard = debug_sys_scoreboard::type_id::create("scoreboard", this);
-    vseqr = debug_sys_virtual_sequencer::type_id::create("vseqr", this);
+    vseqr      = debug_sys_virtual_sequencer::type_id::create("vseqr", this);
+
+    // Predictor: predicts expected exit-port transactions from the addr map.
+    predictor = debug_sys_predictor::type_id::create("predictor", this);
+    predictor.map = cfg.addr_map;
+    predictor.cfg = cfg;
   endfunction
 
   virtual function void build_debug_port();
@@ -197,35 +203,41 @@ class debug_sys_env extends uvm_env;
   virtual function void connect_phase(uvm_phase phase);
     super.connect_phase(phase);
 
+    // Flow: in-monitor -> predictor -> scoreboard(expected);
+    //      out-monitor -> scoreboard(actual).
 `ifdef DEBUG_PORT_JTAG
     vseqr.port_sequencer = driver_agent.transaction_seqr;
-    driver_agent.txrx_mon.rx_xact_observed_port.connect(scoreboard.debug_in);
-    controller_agent.txrx_mon.rx_xact_observed_port.connect(scoreboard.debug_out);
+    driver_agent.txrx_mon.rx_xact_observed_port.connect(predictor.debug_in);
+    controller_agent.txrx_mon.rx_xact_observed_port.connect(scoreboard.debug_actual);
 `elsif DEBUG_PORT_SWD
     vseqr.port_sequencer = master_agent.transaction_seqr;
-    master_agent.master_mon.rx_xact_observed_port.connect(scoreboard.debug_in);
-    slave_agent.slave_mon.rx_xact_observed_port.connect(scoreboard.debug_out);
+    master_agent.master_mon.rx_xact_observed_port.connect(predictor.debug_in);
+    slave_agent.slave_mon.rx_xact_observed_port.connect(scoreboard.debug_actual);
 `endif
+    predictor.debug_exp.connect(scoreboard.debug_exp);
 
     if (cfg.enable_apb_ral) begin
       vseqr.apb_sequencer = apb_master_env.master.sequencer;
       vseqr.regmodel = regmodel;
       uvm_resource_db#(svt_apb_slave_agent)::set(
         "debug_sys_env", "apb_slave0", apb_slave_env.slave[0], this);
-      apb_master_env.master.monitor.item_observed_port.connect(scoreboard.apb_in);
-      apb_slave_env.slave[0].monitor.item_observed_port.connect(scoreboard.apb_out);
+      apb_master_env.master.monitor.item_observed_port.connect(predictor.apb_in);
+      apb_slave_env.slave[0].monitor.item_observed_port.connect(scoreboard.apb_actual);
     end
+    predictor.apb_exp.connect(scoreboard.apb_exp);
 
     if (cfg.enable_axi_monitor) begin
-      axi_monitor_env.master[0].monitor.item_observed_port.connect(scoreboard.axi_in);
-      axi_monitor_env.slave[0].monitor.item_observed_port.connect(scoreboard.axi_out);
+      axi_monitor_env.master[0].monitor.item_observed_port.connect(predictor.axi_in);
+      axi_monitor_env.slave[0].monitor.item_observed_port.connect(scoreboard.axi_actual);
     end
+    predictor.axi_exp.connect(scoreboard.axi_exp);
 
     if (cfg.enable_atb) begin
       vseqr.atb_sequencer = atb_env.sequencer;
-      atb_env.master[0].monitor.item_observed_port.connect(scoreboard.atb_in);
-      atb_env.slave[0].monitor.item_observed_port.connect(scoreboard.atb_out);
+      atb_env.master[0].monitor.item_observed_port.connect(predictor.atb_in);
+      atb_env.slave[0].monitor.item_observed_port.connect(scoreboard.atb_actual);
     end
+    predictor.atb_exp.connect(scoreboard.atb_exp);
   endfunction
 endclass
 
