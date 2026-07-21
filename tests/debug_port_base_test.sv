@@ -1,6 +1,14 @@
 `ifndef DEBUG_PORT_BASE_TEST_SV
 `define DEBUG_PORT_BASE_TEST_SV
 
+// Base Test Class
+//
+// Architecture Principles:
+// 1. All configuration happens in build_phase
+// 2. All interfaces are retrieved from config_db (NO hierarchical refs)
+// 3. Test only starts sequences, no direct DUT interaction
+// 4. Sequences run on virtual sequencer (not on agent sequencer directly)
+//
 class debug_port_base_test extends uvm_test;
   debug_sys_cfg cfg;
   debug_sys_env env;
@@ -11,12 +19,21 @@ class debug_port_base_test extends uvm_test;
     super.new(name, parent);
   endfunction
 
+  //=============================================
+  // BUILD PHASE - All config setup happens HERE
+  //=============================================
   virtual function void build_phase(uvm_phase phase);
     super.build_phase(phase);
 
+    // Create and configure our environment config
     cfg = debug_sys_cfg::type_id::create("cfg");
+    configure_env(cfg);  // Hook for tests to override config
+
+    // Pass config to env via config_db - standard UVM pattern
     uvm_config_db#(debug_sys_cfg)::set(this, "env", "cfg", cfg);
 
+    // Set VIP configurations via config_db
+    // NO HIERARCHICAL REFERENCES HERE - all done by SVT VIP
     uvm_config_db#(uvm_object_wrapper)::set(
       this,
       "env.apb_slave_env.slave*.sequencer.run_phase",
@@ -28,29 +45,51 @@ class debug_port_base_test extends uvm_test;
       "default_sequence",
       svt_atb_slave_response_sequence::type_id::get());
 
+    // Create environment
     env = debug_sys_env::type_id::create("env", this);
+
+    `uvm_info("TEST", "Build phase complete - config passed via config_db", UVM_MEDIUM)
   endfunction
 
+  // Hook for derived tests to override config before env is created
+  virtual function void configure_env(debug_sys_cfg cfg);
+    // Default configuration - tests can override this
+    cfg.enable_coverage = 1'b1;
+    cfg.enable_apb_ral = 1'b1;
+    cfg.enable_checks = 1'b0;
+    cfg.enable_atb = 1'b1;
+    cfg.swd_turnaround = 1;
+  endfunction
+
+  //=============================================
+  // RESET PHASE
+  //=============================================
   virtual task reset_phase(uvm_phase phase);
     debug_reset_sequence reset_seq;
     phase.raise_objection(this);
     reset_seq = debug_reset_sequence::type_id::create("reset_seq");
-    reset_seq.start(env.vseqr);
+    reset_seq.start(env.vseqr);  // Run on virtual sequencer
     if (env.regmodel != null) env.regmodel.reset();
     phase.drop_objection(this);
   endtask
 
+  //=============================================
+  // Test methods - called by derived tests in main_phase
+  // All sequences run on virtual sequencer
+  //=============================================
+
   virtual task run_entry_smoke();
     debug_entry_sequence entry_seq;
     entry_seq = debug_entry_sequence::type_id::create("entry_seq");
-    entry_seq.start(env.vseqr.port_sequencer);
+    entry_seq.start(env.vseqr);  // Virtual sequencer
   endtask
 
+  // Simple RAL smoke test (built-in)
   virtual task run_reg_smoke();
     uvm_status_e status;
     uvm_reg_data_t readback;
 
-    env.regmodel.control.write(status, 32'hA5A5_5A5A, UVM_FRONTDOOR,
+    env.regmodel.control.write(status, 32'hA5A55A5A, UVM_FRONTDOOR,
                                env.regmodel.default_map, this);
     if (status != UVM_IS_OK) begin
       `uvm_error("RAL_WRITE", "APB RAL control write failed")
@@ -61,7 +100,7 @@ class debug_port_base_test extends uvm_test;
     if (status != UVM_IS_OK) begin
       `uvm_error("RAL_READ", "APB RAL control read failed")
     end
-    if (readback != 32'hA5A5_5A5A) begin
+    if (readback != 32'hA5A55A5A) begin
       `uvm_error("RAL_DATA", $sformatf("expected A5A55A5A, got %08h", readback))
     end
   endtask
@@ -74,11 +113,28 @@ class debug_port_base_test extends uvm_test;
     trace_seq.start(env.vseqr.atb_sequencer);
   endtask
 
+  // DEPRECATED: Direct APB transaction method
   virtual task run_apb_xfer();
     debug_apb_xfer_sequence apb_seq;
     apb_seq = debug_apb_xfer_sequence::type_id::create("apb_seq");
     apb_seq.start(env.apb_master_env.master.sequencer);
   endtask
+
+  // RAL-based register test (RECOMMENDED)
+  // Runs on virtual sequencer
+  virtual task run_apb_reg_test();
+    debug_apb_reg_test_sequence reg_seq;
+    reg_seq = debug_apb_reg_test_sequence::type_id::create("reg_seq");
+    reg_seq.start(env.vseqr);  // Virtual sequencer
+  endtask
+
+  // Scenario-based test (RECOMMENDED for complete tests)
+  virtual task run_apb_scenario_test();
+    debug_apb_scenario_sequence scenario_seq;
+    scenario_seq = debug_apb_scenario_sequence::type_id::create("scenario_seq");
+    scenario_seq.start(env.vseqr);  // Virtual sequencer
+  endtask
+
 endclass
 
 `endif
