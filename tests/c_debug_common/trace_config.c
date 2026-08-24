@@ -12,10 +12,8 @@
  *   - tests/c_debug_direct_tests/main.cpp
  *   - Uses W32/R32, c_uvm_info/c_uvm_error from drv_common.h
  *
- * Register offsets are defined in coresight_trace_regs.h and traced back to
- * ARM official documents where possible; TMC/TPIU offsets are marked
- * PROJECT_VERIFY because they came from an existing project test whose
- * authority is uncertain.
+ * Register offsets are defined in coresight_trace_regs.h and verified against
+ * ARM official documents (SoC-600 TRM 100806_0800_18 and DDI0528B).
  */
 
 #include <stdint.h>
@@ -65,23 +63,35 @@ static void catu_enable_fixed(uint32_t base)
 
 /* ----------------------------------------------------------------------
  * Helper: configure a TMC in ETR mode.
- * ETR writes are routed through CATU; the buffer address/size semantics
- * depend on the CATU/ETR integration in this SoC.
- * The offsets below come from the project test
- *   openocd-sim-v0.2.0/tests/trace/etr_config_check.tcl
- * and are marked PROJECT_VERIFY.
+ * Offsets per ARM SoC-600 css600_tmc_etr (100806_0800_18 TRM 9.18).
+ * ETR writes are routed through CATU; buffer ADDRESS is DBALO/DBAHI.
+ * Configures MODE/DBALO/DBAHI/AXICTL + RWP/RRP pointers per TRM 4.8.5.
+ * No DBSIZE register (RAM size is RSZ, RO, hw-fixed). Start capture via CTL.TraceCaptEn.
  * ---------------------------------------------------------------------- */
 static void tmc_etr_config(uint32_t base, uint32_t buf_addr, uint32_t buf_size)
 {
-    W32(base + TMC_MODE,   TMC_MODE_ETR);
-    W32(base + TMC_DBALO,  buf_addr);
-    W32(base + TMC_DBAHI,  0U);
-    W32(base + TMC_DBSIZE, buf_size);
+    /* Per ARM SoC-600 css600_tmc_etr usage model (TRM 4.8.5, ETR steps 5-7):
+     *   MODE      = ETR mode
+     *   DBALO/DBAHI = AXI buffer write address (low/high)
+     *   AXICTL    = AXI control (SoC-specific; TMC_AXICTL_DEFAULT is a placeholder)
+     *   RWP/RRP   = DBA   (write & read pointers = buffer base; TRM: RRP = RWP)
+     *   RWPHI/RRPHI = DBAHI (high bits of the pointers)
+     *   RSZ is read-only (hardware RAM size) -> not written; buf_size is unused.
+     * NOTE: to actually START capture, the caller must set CTL.TraceCaptEn (TRM step 8). */
+    W32(base + TMC_MODE,    TMC_MODE_ETR);
+    W32(base + TMC_DBALO,   buf_addr);
+    W32(base + TMC_DBAHI,   0U);
+    W32(base + TMC_AXICTL,  TMC_AXICTL_DEFAULT);
+    W32(base + TMC_RWP,     buf_addr);
+    W32(base + TMC_RWPHI,   0U);
+    W32(base + TMC_RRP,     buf_addr);
+    W32(base + TMC_RRPHI,   0U);
+    (void)buf_size;  /* css600_tmc_etr has no DBSIZE; RAM size is RSZ (RO, hw-fixed) */
 }
 
 /* ----------------------------------------------------------------------
  * Helper: configure a TMC in on-chip ETF (SW FIFO) mode.
- * PROJECT_VERIFY: TMC_MODE offset and mode encoding.
+ * TMC_MODE offset 0x028 per ARM SoC-600 css600_tmc_etr; mode encoding HWFIFO=0/SWFIFO=1/ETR=2.
  * ---------------------------------------------------------------------- */
 static void tmc_etf_config(uint32_t base)
 {
@@ -172,7 +182,7 @@ void dbg_ss_trace_init(trace_mode_t mode,
         replicator_route(SYS_REPLICATOR_BASE, 1);   /* port 1 -> TPIU */
 
         /* Configure TPIU for parallel trace port output.
-         * PROJECT_VERIFY: offsets and bit definitions depend on TPIU version. */
+         * Offsets confirmed (css600_tpiu); FFCR bit defs (ENFCONT/FLUSHMAN) still need check. */
         W32(SYS_TPIU_BASE + TPIU_CSPSR, tpiu_port_size);
         W32(SYS_TPIU_BASE + TPIU_SPPR,  TPIU_SPPR_PARALLEL);
         W32(SYS_TPIU_BASE + TPIU_FFCR,
