@@ -73,6 +73,7 @@
 #define TMC_MODE               0x028U  /* ARM SoC-600 css600_tmc_etr: Mode */
 #define TMC_LBUFLEVEL          0x02cU  /* ARM SoC-600 css600_tmc_etr: Latched Buffer Fill Level (RO) */
 #define TMC_CBUFLEVEL          0x030U  /* ARM SoC-600 css600_tmc_etr: Current Buffer Fill Level (RO); was misnamed CBSIZE */
+#define TMC_BUFWM             0x034U  /* ARM SoC-600 css600_tmc: Buffer Level Water Mark (SW FIFO/HWF) */
 #define TMC_AXICTL             0x110U  /* ARM SoC-600 css600_tmc_etr: AXI Control; was AXICTRL */
 #define TMC_DBALO              0x118U  /* ARM SoC-600 css600_tmc_etr: Data Buffer Address Low */
 #define TMC_DBAHI              0x11cU  /* ARM SoC-600 css600_tmc_etr: Data Buffer Address High */
@@ -100,7 +101,8 @@
  * ====================================================================== */
 #define REPL_IDFILTER0         0x000U
 #define REPL_IDFILTER1         0x004U
-#define REPL_IDFILTER_DISABLE  (1U << 7)
+#define REPL_IDFILTER_PASS_ALL    0x00U  /* all ATB IDs pass to this port (reset/default = broadcast) */
+#define REPL_IDFILTER_DISCARD_ALL 0xFFU  /* all ATB IDs discarded -> port disabled */
 
 /* ======================================================================
  * CoreSight TPIU
@@ -144,6 +146,7 @@
 
 #define CATU_CONTROL_EN        (1U << 0)
 #define CATU_MODE_PASSTHROUGH  0x00000000U
+#define CATU_SLADDR_DEFAULT   0x27400000U  /* default CATU scatter-list address (4KB-aligned) */
 #define CATU_MODE_TRANSLATE    0x00000001U
 
 /* ======================================================================
@@ -152,7 +155,8 @@
 typedef enum {
     TRACE_MODE_ETF_ONCHIP = 0,   /* source -> funnel -> ETF (on-chip FIFO) */
     TRACE_MODE_ETR_CATU   = 1,   /* source -> funnel -> replicator -> ETR -> CATU -> DRAM */
-    TRACE_MODE_TPIU_OFFCHIP = 2  /* source -> funnel -> replicator -> TPIU (off-chip) */
+    TRACE_MODE_CATU_BYPASS  = 2,  /* funnel -> replicator(both) -> ETF + ETR -> CATU(pass-through) */
+    TRACE_MODE_FULL_INT  = 3   /* replicator(port0) -> ETF(SW FIFO, BUFWM=max) -> full IRQ after 1 word */
 } trace_mode_t;
 
 #endif /* CORESIGHT_TRACE_REGS_H */
