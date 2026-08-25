@@ -11,16 +11,18 @@
  * only). Register offsets are in coresight_trace_regs.h.
  *
  * Modes (trace_mode_t):
- *   TRACE_MODE_ETF_ONCHIP  - replicator(port0) -> ETF (circular buffer)
- *   TRACE_MODE_ETR_CATU    - replicator(port1) -> ETR -> CATU(translate) -> DRAM
- *   TRACE_MODE_CATU_BYPASS - replicator(both)  -> ETF + ETR -> CATU(pass-through)
- *   TRACE_MODE_FULL_INT    - replicator(port0) -> ETF(SW FIFO, BUFWM=MEM_SIZE-1)
- *                            full output asserts after 1 word -> full IRQ.
- *                            (ETR can also produce a full IRQ via the same
- *                            BUFWM mechanism in ETR mode; see TRM 9.16.12.)
+ *   TRACE_MODE_ETF_ONCHIP    - replicator(port0) -> ETF (circular buffer)
+ *   TRACE_MODE_ETR_CATU      - replicator(port1) -> ETF + ETR -> CATU(translate)
+ *   TRACE_MODE_CATU_BYPASS  - replicator(both)  -> ETF + ETR -> CATU(pass-through)
+ *   TRACE_MODE_FULL_INT     - replicator(port0) -> ETF(SW FIFO, BUFWM=max) -> full IRQ
+ *   TRACE_MODE_CATU_ADDRERR - replicator(port1) -> ETR -> CATU(INADDR wrong) -> ADDRERR IRQ
  *
  * Replicator default (ARM SoC-600 TRM 9.9): IDFILT reset=0 = all IDs pass to
  * BOTH ports (broadcast). To disable a port write 0xFF.
+ *
+ * CATU INADDR (TRM 9.12.7/9.12.8): validates the ETR write address in BOTH
+ * translate and pass-through modes. VA out of range -> STATUS.ADDRERR -> IRQ.
+ * ADDRERR mode deliberately sets INADDR above the buffer to trigger it.
  */
 
 #ifndef DRV_DEBUG_H

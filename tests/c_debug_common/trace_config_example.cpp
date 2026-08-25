@@ -14,8 +14,7 @@ CPU_TEST_START
     // --------------- clks cfg finish ---------------- //
 
     /* AON trace tree: M52/HIFI trace -> funnel (ports 0,1,2)
-     *   -> replicator(both) -> ETF + ETR -> CATU(pass-through)
-     * CATU bypass: both sinks capture, no scatter list needed. */
+     *   -> replicator(both) -> ETF + ETR -> CATU(pass-through) */
     aon_trace_init(TRACE_MODE_CATU_BYPASS, /* mode */
                    0x07U,                  /* funnel slave ports 0,1,2 */
                    0x10000000U,            /* ETR buffer addr (DRAM) */
@@ -29,11 +28,11 @@ CPU_TEST_START
                       0x00010000U,           /* buffer size */
                       CATU_SLADDR_DEFAULT);  /* CATU scatter list @ 0x27400000 */
 
-    /* To test the full-interrupt / error path instead, use:
-     *   aon_trace_init(TRACE_MODE_FULL_INT, 0x07U, 0, 0, 0);
-     *   dbg_ss_trace_init(TRACE_MODE_FULL_INT, 0x01U, 0, 0, 0);
-     * ETF is configured in SW FIFO mode with BUFWM=MEM_SIZE-1, so the full
-     * output (and full IRQ) fires after the first trace word flows in.
+    /* Interrupt / error-path tests:
+     *   TRACE_MODE_FULL_INT      - ETF full IRQ (BUFWM=max, fires after 1 word)
+     *   TRACE_MODE_CATU_ADDRERR  - CATU ADDRERR IRQ (INADDR deliberately wrong)
+     *   aon_trace_init(TRACE_MODE_FULL_INT,     0x07U, 0, 0, 0);
+     *   dbg_ss_trace_init(TRACE_MODE_CATU_ADDRERR, 0x01U, 0x10000000U, 0x10000U, 0);
      */
 
     c_uvm_info("trace config done");
