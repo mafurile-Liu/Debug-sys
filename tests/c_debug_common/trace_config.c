@@ -152,6 +152,7 @@ void aon_trace_init(trace_mode_t mode,
         replicator_config(AON_REPLICATOR_BASE,
                           REPL_IDFILTER_DISCARD_ALL,
                           REPL_IDFILTER_PASS_ALL);
+        tmc_etf_config(AON_ETF_BASE);
         catu_enable_translate(AON_CATU_BASE, catu_sladdr);
         tmc_etr_config(AON_ETR_BASE, etr_buf_addr, etr_buf_size);
         break;
@@ -211,6 +212,7 @@ void dbg_ss_trace_init(trace_mode_t mode,
         replicator_config(SYS_REPLICATOR_BASE,
                           REPL_IDFILTER_DISCARD_ALL,
                           REPL_IDFILTER_PASS_ALL);
+        tmc_etf_config(SYS_ETF_BASE);
         catu_enable_translate(SYS_CATU_BASE, catu_sladdr);
         tmc_etr_config(SYS_ETR_BASE, etr_buf_addr, etr_buf_size);
         break;
