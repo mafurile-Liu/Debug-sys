@@ -156,7 +156,7 @@ typedef enum {
     TRACE_MODE_ETF_ONCHIP = 0,   /* source -> funnel -> ETF (on-chip FIFO) */
     TRACE_MODE_ETR_CATU   = 1,   /* source -> funnel -> replicator -> ETR -> CATU -> DRAM */
     TRACE_MODE_CATU_BYPASS  = 2,  /* funnel -> replicator(both) -> ETF + ETR -> CATU(pass-through) */
-    TRACE_MODE_FULL_INT  = 3   /* replicator(port0) -> ETF(SW FIFO, BUFWM=max) -> full IRQ after 1 word */
+    TRACE_MODE_FULL_INT  = 3,  /* replicator(port0) -> ETF(SW FIFO, BUFWM=max) -> full IRQ after 1 word */
     TRACE_MODE_CATU_ADDRERR = 4  /* CATU INADDR deliberately wrong -> ETR write triggers ADDRERR IRQ */
 } trace_mode_t;
 
