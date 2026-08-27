@@ -1,4 +1,4 @@
-# ==========================================
+﻿# ==========================================
 # Debug Subsystem Verification Filelist
 # ==========================================
 # Compilation Order:
@@ -32,8 +32,12 @@
 # Sequence package directory
 +incdir+tb/sequences
 
-# Environment package directory
+# Environment package directory (with subdirs for protocol-specific envs)
 +incdir+tb/env
++incdir+tb/env/common
++incdir+tb/env/jtag
++incdir+tb/env/apb
++incdir+tb/env/atb
 
 # Test package directory
 +incdir+tests

@@ -92,14 +92,14 @@ def main() -> int:
         errors.append("no SystemVerilog sources found")
 
     for path in sources:
-        text = path.read_text(encoding="utf-8")
+        text = path.read_text(encoding="utf-8-sig")
         check_preprocessor(path, text, errors)
         check_pairs(path, text, errors)
         check_includes(path, text, errors)
 
     top = ROOT / "tb" / "debug_port_top.sv"
     top_text = top.read_text(encoding="utf-8") if top.exists() else ""
-    for required in ("DEBUG_PORT_JTAG", "DEBUG_PORT_SWD", "run_test"):
+    for required in ("run_test", "debug_port_proto"):
         if required not in top_text:
             errors.append(f"top is missing required selector/hook: {required}")
 

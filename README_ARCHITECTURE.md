@@ -249,7 +249,7 @@ make PORT=apb TEST=debug_apb_scenario_test waves
    - 添加新的 uvm_reg 声明
    - 在 reg_block.build() 中创建并 add 到 map
 
-2. tb/env/debug_sys_scoreboard.sv
+2. tb/env/common/debug_sys_scoreboard.sv
    - 在 build_phase() 中 init_reg_shadow(addr, reset, access)
 ```
 

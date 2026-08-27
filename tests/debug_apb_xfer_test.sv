@@ -1,12 +1,12 @@
-`ifndef DEBUG_APB_XFER_TEST_SV
+﻿`ifndef DEBUG_APB_XFER_TEST_SV
 `define DEBUG_APB_XFER_TEST_SV
 
 /**
- * APB 收发验证测试
+ * APB Transfer Verification Test
  *
- * 在 main_phase 中启动 debug_apb_xfer_sequence，
- * 通过现有 apb_master_env.master.sequencer 驱动。
- * scoreboard 和 slave memory sequence 由 base_test 配置。
+ * This test starts the debug_apb_xfer_sequence in main_phase.
+ * The sequence drives transactions through apb_master_env.master.sequencer.
+ * Scoreboard and slave memory sequence are configured by base_test.
  */
 class debug_apb_xfer_test extends debug_port_base_test;
   `uvm_component_utils(debug_apb_xfer_test)

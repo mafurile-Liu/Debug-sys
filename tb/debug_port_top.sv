@@ -1,4 +1,4 @@
-`timescale 1ns/1ps
+﻿`timescale 1ns/1ps
 
 // ==========================================
 // DEBUG PORT TOP MODULE
@@ -14,29 +14,29 @@
 //
 // Directory Structure:
 //   tb/
-//     ??? env/          (env_pkg, scoreboard, coverage, cfg, vseqr, env)
-//     ??? sequences/    (seq_pkg, all layered sequences)
-//     ??? ral/          (register model)
-//     ??? interfaces/   (all SV interfaces)
-//     ??? loopbacks/    (DUT loopback modules)
-//     ??? debug_port_top.sv
+//        |-- env/
+//        |     |-- common/    (cfg, scoreboard, coverage, vseqr, ...)
+//        |     |-- jtag/      (debug_port_env - JTAG+SWD)
+//        |     |-- apb/       (debug_apb_env)
+//        |     |-- atb/       (debug_atb_env)
+//        |     |-- debug_env_pkg.sv
+//        |     +-- debug_sys_env.sv (top env)
+//        |-- sequences/    (seq_pkg, all layered sequences)
+//        |-- ral/          (register model)
+//        |-- interfaces/   (all SV interfaces)
+//        |-- loopbacks/    (DUT loopback modules)
+//        +-- debug_port_top.sv
 //   tests/             (test_pkg + all testcases)
 //   filelist/          (compile file lists)
 //
+// Protocol Selection (runtime plusarg):
+//   +debug_port_proto=JTAG  (default)
+//   +debug_port_proto=SWD
 // ==========================================
 
-`ifndef DEBUG_PORT_JTAG
-  `ifndef DEBUG_PORT_SWD
-    `define DEBUG_PORT_JTAG
-  `endif
-`endif
-
-// SVT VIP packages
-`ifdef DEBUG_PORT_JTAG
-  `include "svt_jtag.uvm.pkg"
-`elsif DEBUG_PORT_SWD
-  `include "svt_swd.uvm.pkg"
-`endif
+// SVT VIP packages - JTAG and SWD are both compiled in
+`include "svt_jtag.uvm.pkg"
+`include "svt_swd.uvm.pkg"
 `include "svt_apb.uvm.pkg"
 `include "svt_axi.uvm.pkg"
 `include "svt_atb.pkg"
@@ -44,12 +44,9 @@
 // Interfaces
 `include "debug_reset_if.sv"
 
-// Loopback DUT modules
-`ifdef DEBUG_PORT_JTAG
-  `include "debug_jtag_loopback.sv"
-`elsif DEBUG_PORT_SWD
-  `include "debug_swd_loopback.sv"
-`endif
+// All loopback DUT modules
+`include "debug_jtag_loopback.sv"
+`include "debug_swd_loopback.sv"
 `include "debug_apb_loopback.sv"
 `include "debug_atb_loopback.sv"
 
@@ -68,14 +65,12 @@
 module debug_port_top;
   import uvm_pkg::*;
   import svt_uvm_pkg::*;
+  import svt_jtag_uvm_pkg::*;
+  import svt_swd_uvm_pkg::*;
   import svt_apb_uvm_pkg::*;
   import svt_axi_uvm_pkg::*;
   import svt_atb_pkg::*;
-`ifdef DEBUG_PORT_JTAG
-  import svt_jtag_uvm_pkg::*;
-`elsif DEBUG_PORT_SWD
-  import svt_swd_uvm_pkg::*;
-`endif
+
   // Import our packages
   import debug_seq_pkg::*;
   import debug_env_pkg::*;
@@ -94,17 +89,29 @@ module debug_port_top;
   // Debug reset interface
   debug_reset_if reset_if(.clk(pclk));
 
-  // Loopback connections (DUT)
-`ifdef DEBUG_PORT_JTAG
-  svt_jtag_if master_if();
-  svt_jtag_if slave_if();
-  debug_jtag_loopback jtag_loopback(.*);
-`elsif DEBUG_PORT_SWD
-  svt_swd_if master_if();
-  svt_swd_if slave_if();
-  debug_swd_loopback swd_loopback(.*);
-`endif
+  // ==========================================
+  // JTAG interfaces + loopback
+  // ==========================================
+  svt_jtag_if jtag_driver_if();
+  svt_jtag_if jtag_controller_if();
+  debug_jtag_loopback jtag_loopback(
+    .driver_if(jtag_driver_if),
+    .controller_if(jtag_controller_if)
+  );
 
+  // ==========================================
+  // SWD interfaces + loopback
+  // ==========================================
+  svt_swd_if swd_master_if();
+  svt_swd_if swd_slave_if();
+  debug_swd_loopback swd_loopback(
+    .master_if(swd_master_if),
+    .slave_if(swd_slave_if)
+  );
+
+  // ==========================================
+  // APB interfaces + loopback
+  // ==========================================
   svt_apb_if #(
     .ADDR_WIDTH(16),
     .DATA_WIDTH(32)
@@ -115,6 +122,11 @@ module debug_port_top;
     .DATA_WIDTH(32)
   ) apb_slave_if(pclk, preset_n);
 
+  debug_apb_loopback apb_loopback(.*);
+
+  // ==========================================
+  // ATB interfaces + loopback
+  // ==========================================
   svt_atb_if #(
     .ID_WIDTH(7),
     .DATA_WIDTH(32)
@@ -125,7 +137,6 @@ module debug_port_top;
     .DATA_WIDTH(32)
   ) atb_slave_if(pclk, preset_n);
 
-  debug_apb_loopback apb_loopback(.*);
   debug_atb_loopback atb_loopback(.*);
 
   initial begin
@@ -133,15 +144,43 @@ module debug_port_top;
     // CONFIG_DB INTERFACE ASSIGNMENTS
     // All interfaces retrieved via config_db.
     // NO hierarchical path references in UVM code.
+    //
+    // UVM hierarchy:
+    //   uvm_test_top.env
+    //     |-- port_env
+    //     |     |-- jtag_driver_agent
+    //     |     |-- jtag_controller_agent
+    //     |     |-- swd_master_agent
+    //     |     +-- swd_slave_agent
+    //     |-- apb_env
+    //     |     |-- apb_master_env.master
+    //     |     +-- apb_slave_env.slave[0]
+    //     +-- atb_env.atb_env
     // ==========================================
+
+    // Reset interface
     uvm_config_db#(virtual debug_reset_if.seq_mp)::set(
       null, "uvm_test_top.env.vseqr", "reset_vif", reset_if.seq_mp);
 
-    uvm_config_db#(virtual svt_apb_if)::set(
-      null, "uvm_test_top.env.apb_master_env.master", "vif", apb_master_if);
-    uvm_config_db#(virtual svt_apb_if)::set(
-      null, "uvm_test_top.env.apb_slave_env.slave[0]", "vif", apb_slave_if);
+    // JTAG interfaces (to port_env.*)
+    uvm_config_db#(virtual svt_jtag_if)::set(
+      null, "uvm_test_top.env.port_env.jtag_driver_agent", "vif", jtag_driver_if);
+    uvm_config_db#(virtual svt_jtag_if)::set(
+      null, "uvm_test_top.env.port_env.jtag_controller_agent", "vif", jtag_controller_if);
 
+    // SWD interfaces (to port_env.*)
+    uvm_config_db#(virtual svt_swd_if)::set(
+      null, "uvm_test_top.env.port_env.swd_master_agent", "vif", swd_master_if);
+    uvm_config_db#(virtual svt_swd_if)::set(
+      null, "uvm_test_top.env.port_env.swd_slave_agent", "vif", swd_slave_if);
+
+    // APB interfaces (to apb_env.*)
+    uvm_config_db#(virtual svt_apb_if)::set(
+      null, "uvm_test_top.env.apb_env.apb_master_env.master", "vif", apb_master_if);
+    uvm_config_db#(virtual svt_apb_if)::set(
+      null, "uvm_test_top.env.apb_env.apb_slave_env.slave[0]", "vif", apb_slave_if);
+
+    // ATB interface (to atb_env)
     uvm_config_db#(virtual svt_atb_if)::set(
       null, "uvm_test_top.env", "atb_vif", atb_master_if);
 

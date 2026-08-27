@@ -1,5 +1,5 @@
 /*
- * trace_config.c
+ * trace_config.cpp
  *
  * IMPLEMENTATIONS for the AON and dbg_ss (SYS) CoreSight trace-tree startup.
  * Declarations are in drv_debug.h (which pulls in drv_common.h and
@@ -143,9 +143,29 @@ static void tmc_etf_full_int_config(uint32_t base)
 }
 
 /* ----------------------------------------------------------------------
+ * Enable crash_dump as a trace source.
+ * Crash_dump is currently modeled as an ATB source into AON_FUNNEL slave
+ * port 0. Internal crash_dump registers are not configured here; add them
+ * when the HDD provides the register map.
+ * ---------------------------------------------------------------------- */
+void crash_dump_start(void)
+{
+    c_uvm_info("crash_dump_start: base=0x%08x funnel_port=%0d",
+               AON_CRASH_DUMP_BASE,
+               AON_CRASH_DUMP_FUNNEL_SLAVE_PORT);
+
+    funnel_enable(AON_FUNNEL_BASE,
+                  1U << AON_CRASH_DUMP_FUNNEL_SLAVE_PORT);
+}
+
+/* ----------------------------------------------------------------------
  * AON trace tree startup.
  * Components: Funnel -> Replicator -> {ETF (port0), ETR->CATU (port1)}
- * Trace sources (per AON_SS架构.png): M52 ITM, M52 ETM, HiFi5s TRAX/ITM
+ * Trace sources (per AON_SS架构.png):
+ *   - M52 ITM
+ *   - M52 ETM
+ *   - HiFi5s TRAX/ITM
+ *   - crash_dump, on AON_FUNNEL slave port 0
  * ---------------------------------------------------------------------- */
 void aon_trace_init(trace_mode_t mode,
                     uint32_t     funnel_slave_port_mask,

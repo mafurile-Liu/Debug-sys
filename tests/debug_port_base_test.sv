@@ -1,4 +1,4 @@
-`ifndef DEBUG_PORT_BASE_TEST_SV
+﻿`ifndef DEBUG_PORT_BASE_TEST_SV
 `define DEBUG_PORT_BASE_TEST_SV
 
 // Base Test Class
@@ -36,12 +36,12 @@ class debug_port_base_test extends uvm_test;
     // NO HIERARCHICAL REFERENCES HERE - all done by SVT VIP
     uvm_config_db#(uvm_object_wrapper)::set(
       this,
-      "env.apb_slave_env.slave*.sequencer.run_phase",
+      "env.apb_env.apb_slave_env.slave*.sequencer.run_phase",
       "default_sequence",
       svt_apb_slave_memory_sequence::type_id::get());
     uvm_config_db#(uvm_object_wrapper)::set(
       this,
-      "env.atb_env.slave*.sequencer.run_phase",
+      "env.atb_env.atb_env.slave*.sequencer.run_phase",
       "default_sequence",
       svt_atb_slave_response_sequence::type_id::get());
 
@@ -117,7 +117,7 @@ class debug_port_base_test extends uvm_test;
   virtual task run_apb_xfer();
     debug_apb_xfer_sequence apb_seq;
     apb_seq = debug_apb_xfer_sequence::type_id::create("apb_seq");
-    apb_seq.start(env.apb_master_env.master.sequencer);
+    apb_seq.start(env.apb_env.apb_master_env.master.sequencer);
   endtask
 
   // RAL-based register test (RECOMMENDED)

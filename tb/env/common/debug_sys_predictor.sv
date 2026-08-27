@@ -29,6 +29,17 @@ class debug_sys_predictor extends uvm_component;
 
   virtual function void build_phase(uvm_phase phase);
     super.build_phase(phase);
+
+    if (!uvm_config_db#(debug_sys_cfg)::get(this, "", "cfg", cfg)) begin
+      cfg = debug_sys_cfg::type_id::create("cfg");
+      `uvm_info("PRED", "No cfg in config_db, created default", UVM_MEDIUM)
+    end
+    map = cfg.addr_map;
+    if (map == null) begin
+      map = debug_sys_addr_map::type_id::create("map");
+      map.configure_standalone();
+    end
+
     apb_in   = new("apb_in",   this);
     axi_in   = new("axi_in",   this);
     atb_in   = new("atb_in",   this);

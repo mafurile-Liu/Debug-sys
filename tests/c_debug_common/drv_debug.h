@@ -7,7 +7,7 @@
  * OPEN_DEBUG_CRG) is assumed to be provided by the project environment and is
  * included here; this file does NOT redefine those.
  *
- * Function IMPLEMENTATIONS live in trace_config.c (this header is declarations
+ * Function IMPLEMENTATIONS live in trace_config.cpp (this header is declarations
  * only). Register offsets are in coresight_trace_regs.h.
  *
  * Modes (trace_mode_t):
@@ -50,5 +50,18 @@ void dbg_ss_trace_init(trace_mode_t mode,
                        uint32_t     etr_buf_addr,
                        uint32_t     etr_buf_size,
                        uint32_t     catu_sladdr);
+
+void OPEN_DEBUG_CRG();
+
+/* Enable crash_dump as an AON trace source. */
+void crash_dump_start(void);
+
+/* Configure AON CTI inputs/outputs on a CTM channel. */
+void aon_cti_ctm_config(uint32_t channel,
+                       uint32_t input_mask,
+                       uint32_t output_mask);
+
+/* Software-pulse a CTM channel through CTI APPPULSE. */
+void aon_cti_ctm_pulse(uint32_t channel);
 
 #endif /* DRV_DEBUG_H */

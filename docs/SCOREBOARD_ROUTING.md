@@ -31,12 +31,12 @@ scoreboard 只做"出口实际 vs 预期"的比较。预测与比较解耦。
 
 | 文件 | 作用 |
 |------|------|
-| `tb/env/debug_sys_analysis_decls.svh` | 集中声明所有 analysis 端口宏 + `debug_port_transaction_t` |
-| `tb/env/debug_sys_addr_map.sv` | 地址路由模型(路由表、`lookup`、standalone 默认) |
-| `tb/env/debug_sys_predictor.sv` | 路由预测器(in->预期 out) |
-| `tb/env/debug_sys_scoreboard.sv` | exp/actual 比较(替换原 in/out 比较) |
+| `tb/env/common/debug_sys_analysis_decls.svh` | 集中声明所有 analysis 端口宏 + `debug_port_transaction_t` |
+| `tb/env/common/debug_sys_addr_map.sv` | 地址路由模型(路由表、`lookup`、standalone 默认) |
+| `tb/env/common/debug_sys_predictor.sv` | 路由预测器(in->预期 out) |
+| `tb/env/common/debug_sys_scoreboard.sv` | exp/actual 比较(替换原 in/out 比较) |
 | `tb/env/debug_sys_env.sv` | 接线:in->predictor、predictor->scoreboard(exp)、out->scoreboard(actual) |
-| `tb/env/debug_sys_cfg.sv` | 增加 `addr_map` 字段(默认 standalone identity) |
+| `tb/env/common/debug_sys_cfg.sv` | 增加 `addr_map` 字段(默认 standalone identity) |
 
 ## 地址映射模型 (`debug_sys_addr_map`)
 
@@ -100,6 +100,12 @@ bit lookup(input  debug_sys_port_e ep,
 5. **移除 loopback**:删 `tb/debug_*_loopback.sv` 接线,改接 DUT 端口。
 6. **乱序路径**(可选):AXI ID 重映射时,把 `compare_axi` 从 in-order 改成
    ID-keyed 关联(代码里已标 TODO)。
+
+## 当前实现状态
+
+- APB 和 ATB 已按 `cfg.enable_predictor` 接入 predictor -> scoreboard(exp) / out-monitor -> scoreboard(actual) 的完整链路。
+- JTAG/SWD 与 AXI 目前仍是预留接口，等 DUT 桥接模型和 debug 地址解析确定后再接入。
+- standalone 模式下默认 `addr_map` 为 identity 路由，行为等价于原来的 master/slave 直连比较。
 
 ## 已知限制
 

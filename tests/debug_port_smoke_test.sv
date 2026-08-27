@@ -1,4 +1,4 @@
-`ifndef DEBUG_PORT_SMOKE_TEST_SV
+﻿`ifndef DEBUG_PORT_SMOKE_TEST_SV
 `define DEBUG_PORT_SMOKE_TEST_SV
 
 class debug_port_smoke_test extends debug_port_base_test;
@@ -11,20 +11,30 @@ class debug_port_smoke_test extends debug_port_base_test;
   virtual task main_phase(uvm_phase phase);
     phase.raise_objection(this);
     repeat (20) @(posedge env.vseqr.reset_vif.clk);
-    if (env.apb_master_env == null || env.apb_slave_env == null) begin
-      `uvm_error("NO_APB", "APB RAL environment was not built")
+
+    // Check APB env is built
+    if (env.apb_env == null) begin
+      `uvm_error("NO_APB", "APB environment was not built")
     end
-    if (env.axi_monitor_env == null) begin
-      `uvm_error("NO_AXI", "AXI passive monitor environment was not built")
+
+    // Check port env is built (always present with JTAG+SWD agents)
+    if (env.port_env == null) begin
+      `uvm_error("NO_PORT", "Debug port environment was not built")
     end
-    if (env.atb_env == null) begin
+
+    // Check ATB env is built
+    if (cfg.enable_atb && env.atb_env == null) begin
       `uvm_error("NO_ATB", "ATB environment was not built")
     end
-`ifdef DEBUG_PORT_JTAG
-    `uvm_info("SMOKE", "JTAG + APB RAL + AXI monitor + ATB environment is alive", UVM_LOW)
-`elsif DEBUG_PORT_SWD
-    `uvm_info("SMOKE", "SWD + APB RAL + AXI monitor + ATB environment is alive", UVM_LOW)
-`endif
+
+    // Print active protocol (from plusarg)
+    `uvm_info("SMOKE", $sformatf("Active protocol: %s",
+      cfg.port_protocol.name()), UVM_LOW)
+
+    `uvm_info("SMOKE",
+      "JTAG+SWD port / APB / ATB environment is alive (protocol selected via +debug_port_proto)",
+      UVM_LOW)
+
     phase.drop_objection(this);
   endtask
 endclass

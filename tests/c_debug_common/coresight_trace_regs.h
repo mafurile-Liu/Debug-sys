@@ -33,6 +33,10 @@
 #define AON_REPLICATOR_BASE  0x4A204000U
 #define AON_ETR_BASE         0x4A205000U
 #define AON_CATU_BASE        0x4A206000U
+#define AON_CRASH_DUMP_BASE  0x4A207000U
+
+/* AON crash_dump is a trace source into AON_FUNNEL slave port 0. */
+#define AON_CRASH_DUMP_FUNNEL_SLAVE_PORT 0U
 
 /* SYS / dbg_ss trace tree (APBIC_SYS_DBG expander1)
  * Trace source (per AON_SS架构.png): STM */
@@ -43,6 +47,9 @@
 #define SYS_ETR_BASE         0x4A405000U
 #define SYS_CATU_BASE        0x4A406000U
 #define SYS_TPIU_BASE        0x4A407000U
+
+/* M52-specific crash dump aperture. */
+#define M52_CRASH_DUMP_BASE  0x4A300000U
 
 /* ======================================================================
  * CoreSight Funnel (CSTF)
@@ -159,5 +166,27 @@ typedef enum {
     TRACE_MODE_FULL_INT  = 3,  /* replicator(port0) -> ETF(SW FIFO, BUFWM=max) -> full IRQ after 1 word */
     TRACE_MODE_CATU_ADDRERR = 4  /* CATU INADDR deliberately wrong -> ETR write triggers ADDRERR IRQ */
 } trace_mode_t;
+
+/* ======================================================================
+ * CoreSight CTI / CTM
+ * ====================================================================== */
+#define AON_CTI_BASE         0x4A201000U
+
+#define CTI_CTR                 0x000U
+#define CTI_INACK               0x010U
+#define CTI_APPSET              0x014U
+#define CTI_APPCLEAR            0x018U
+#define CTI_APPPULSE            0x01CU
+#define CTI_TRIN_STATUS         0x130U
+#define CTI_TROUT_STATUS        0x134U
+#define CTI_CHIN_STATUS         0x138U
+#define CTI_CHOU_STATUS         0x13CU
+#define CTI_GATE                0x140U
+#define CTI_DEVCTL              0x150U
+
+#define CTI_CTR_EN              (1U << 0)
+#define CTI_CHNL(x)             (1U << (x))
+#define CTI_INEN(n)             (0x020U + (4U * (n)))
+#define CTI_OUTEN(n)            (0x0A0U + (4U * (n)))
 
 #endif /* CORESIGHT_TRACE_REGS_H */

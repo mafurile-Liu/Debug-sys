@@ -1,36 +1,42 @@
-`ifndef DEBUG_SYS_ENV_SV
+﻿`ifndef DEBUG_SYS_ENV_SV
 `define DEBUG_SYS_ENV_SV
 
 // ==========================================
-// Debug System Environment
+// Debug System Top Environment
 // ==========================================
-// Configuration Hierarchy:
-//   test -> configure_env() -> debug_sys_cfg
-//                              -> create cust_*_cfg for each VIP
-//                              -> pass via config_db
+// 顶层 env，按协议拆分子 env:
 //
-// No hierarchical references - 100% config_db based
+//   debug_sys_env (顶层)
+//   |
+//   +-- port_env     (JTAG + SWD 调试端口, 运行时选一个 active)
+//   |
+//   +-- apb_env      (APB 总线)
+//   |
+//   +-- atb_env      (ATB trace 总线)
+//   |
+//   +-- scoreboard   (公共: 比对)
+//   +-- coverage     (公共: 覆盖率)
+//   +-- vseqr        (公共: 虚拟 sequencer)
+//
+// 协议选择通过 plusarg: +debug_port_proto=JTAG 或 +debug_port_proto=SWD
 // ==========================================
 
 class debug_sys_env extends uvm_env;
+
+  // 公共组件
   debug_sys_cfg cfg;
   debug_sys_virtual_sequencer vseqr;
   debug_sys_scoreboard scoreboard;
+  debug_sys_coverage coverage;
   debug_sys_predictor predictor;
-  debug_sys_reg_block regmodel;
 
-  // Custom VIP configurations (project-specific)
-  cust_apb_cfg apb_master_cfg_obj;
-  cust_apb_cfg apb_slave_cfg_obj;
-  cust_axi_monitor_cfg axi_monitor_cfg_obj;
-  cust_atb_cfg atb_cfg_obj;
-`ifdef DEBUG_PORT_JTAG
-  cust_jtag_cfg driver_cfg_obj;
-  cust_jtag_cfg controller_cfg_obj;
-`elsif DEBUG_PORT_SWD
-  cust_swd_master_cfg master_cfg_obj;
-  cust_swd_slave_cfg slave_cfg_obj;
-`endif
+  // 按协议拆分的子 env
+  debug_port_env port_env;   // JTAG + SWD (运行时二选一 active)
+  debug_apb_env  apb_env;    // APB
+  debug_atb_env  atb_env;    // ATB
+
+  // 寄存器模型 (从 apb_env 引出, 方便 vseqr 使用)
+  debug_sys_reg_block regmodel;
 
   `uvm_component_utils(debug_sys_env)
 
@@ -41,151 +47,131 @@ class debug_sys_env extends uvm_env;
   virtual function void build_phase(uvm_phase phase);
     super.build_phase(phase);
 
-    // Get configuration from config_db (set by test in build_phase)
+    // 获取配置
     if (!uvm_config_db#(debug_sys_cfg)::get(this, "", "cfg", cfg)) begin
-      `uvm_info("ENV", "No cfg in config_db, creating default", UVM_MEDIUM)
       cfg = debug_sys_cfg::type_id::create("cfg");
+      `uvm_info("ENV", "No cfg in config_db, created default", UVM_MEDIUM)
     end
 
-    // Build debug port using custom configuration classes
-    build_debug_port();
+    // 把 cfg 传给所有子 env 和 vseqr
+    uvm_config_db#(debug_sys_cfg)::set(this, "port_env", "cfg", cfg);
+    uvm_config_db#(debug_sys_cfg)::set(this, "apb_env",  "cfg", cfg);
+    uvm_config_db#(debug_sys_cfg)::set(this, "atb_env",  "cfg", cfg);
+    uvm_config_db#(debug_sys_cfg)::set(this, "predictor", "cfg", cfg);
+    uvm_config_db#(debug_sys_cfg)::set(this, "vseqr",    "cfg", cfg);
 
-    // Build APB using cust_apb_cfg
-    if (cfg.enable_apb_ral) build_apb();
+    // ==========================================
+    // 构建各协议子 env
+    // ==========================================
 
-    // Build AXI monitor using cust_axi_monitor_cfg
-    if (cfg.enable_axi_monitor) build_axi_monitor();
+    // Debug Port (JTAG + SWD) - 始终都例化
+    port_env = debug_port_env::type_id::create("port_env", this);
+    `uvm_info("ENV", "debug_port_env created (JTAG+SWD agents)", UVM_MEDIUM)
 
-    // Build ATB using cust_atb_cfg
-    if (cfg.enable_atb) build_atb();
+    // APB
+    if (cfg.enable_apb_ral) begin
+      apb_env = debug_apb_env::type_id::create("apb_env", this);
+      `uvm_info("ENV", "debug_apb_env created", UVM_MEDIUM)
+    end
 
-    // Scoreboard and Coverage (separate - SRP)
+    // ATB
+    if (cfg.enable_atb) begin
+      atb_env = debug_atb_env::type_id::create("atb_env", this);
+      `uvm_info("ENV", "debug_atb_env created", UVM_MEDIUM)
+    end
+
+    // ==========================================
+    // 构建公共组件
+    // ==========================================
     scoreboard = debug_sys_scoreboard::type_id::create("scoreboard", this);
-    vseqr      = debug_sys_virtual_sequencer::type_id::create("vseqr", this);
 
-    // Predictor: predicts expected exit-port transactions from the addr map.
-    predictor = debug_sys_predictor::type_id::create("predictor", this);
-    predictor.map = cfg.addr_map;
-    predictor.cfg = cfg;
-  endfunction
-
-  virtual function void build_debug_port();
-`ifdef DEBUG_PORT_JTAG
-    // Use project-specific JTAG config
-    driver_cfg_obj = cust_jtag_cfg::type_id::create("driver_cfg_obj");
-    controller_cfg_obj = cust_jtag_cfg::type_id::create("controller_cfg_obj");
-
-    // Override for controller (slave) side
-    controller_cfg_obj.jtag_device_type = svt_jtag_types::JTAG_CONTROLLER;
-    controller_cfg_obj.data_width_for_device_identification_reg = 32;
-    controller_cfg_obj.initial_val_for_device_identification_reg = 32'hD06D0001;
-
-    uvm_config_db#(svt_jtag_agent_configuration)::set(this, "driver_agent", "cfg", driver_cfg_obj);
-    uvm_config_db#(svt_jtag_agent_configuration)::set(this, "controller_agent", "cfg", controller_cfg_obj);
-
-    driver_agent = svt_jtag_agent::type_id::create("driver_agent", this);
-    controller_agent = svt_jtag_agent::type_id::create("controller_agent", this);
-`elsif DEBUG_PORT_SWD
-    // Use project-specific SWD config
-    master_cfg_obj = cust_swd_master_cfg::type_id::create("master_cfg_obj");
-    slave_cfg_obj = cust_swd_slave_cfg::type_id::create("slave_cfg_obj");
-
-    uvm_config_db#(svt_swd_agent_configuration)::set(this, "master_agent", "cfg", master_cfg_obj);
-    uvm_config_db#(svt_swd_agent_configuration)::set(this, "slave_agent", "cfg", slave_cfg_obj);
-
-    master_agent = svt_swd_master_agent::type_id::create("master_agent", this);
-    slave_agent = svt_swd_slave_agent::type_id::create("slave_agent", this);
-`endif
-  endfunction
-
-  virtual function void build_apb();
-    // Use project-specific APB config
-    apb_master_cfg_obj = cust_apb_cfg::type_id::create("apb_master_cfg_obj");
-    apb_slave_cfg_obj = cust_apb_cfg::type_id::create("apb_slave_cfg_obj");
-
-    // Master side setup
-    apb_master_cfg_obj.is_active = 1'b1;
-    apb_master_cfg_obj.slave_cfg[0].is_active = 1'b0;
-
-    // Slave side setup
-    apb_slave_cfg_obj.is_active = 1'b0;
-    apb_slave_cfg_obj.slave_cfg[0].is_active = 1'b1;
-
-    // Pass VIP configs via config_db
-    uvm_config_db#(svt_apb_system_configuration)::set(this, "apb_master_env", "cfg", apb_master_cfg_obj);
-    uvm_config_db#(svt_apb_system_configuration)::set(this, "apb_slave_env", "cfg", apb_slave_cfg_obj);
-    uvm_config_db#(uvm_active_passive_enum)::set(this, "apb_master_env.master", "is_active", UVM_ACTIVE);
-    uvm_config_db#(uvm_active_passive_enum)::set(this, "apb_master_env.slave[0]", "is_active", UVM_PASSIVE);
-    uvm_config_db#(uvm_active_passive_enum)::set(this, "apb_slave_env.master", "is_active", UVM_PASSIVE);
-    uvm_config_db#(uvm_active_passive_enum)::set(this, "apb_slave_env.slave[0]", "is_active", UVM_ACTIVE);
-
-    // Create and connect RAL model
-    regmodel = debug_sys_reg_block::type_id::create("regmodel");
-    regmodel.build();
-    regmodel.lock_model();
-    uvm_config_db#(uvm_reg_block)::set(this, "apb_master_env.master", "apb_regmodel", regmodel);
-
-    apb_master_env = svt_apb_system_env::type_id::create("apb_master_env", this);
-    apb_slave_env = svt_apb_system_env::type_id::create("apb_slave_env", this);
-  endfunction
-
-  virtual function void build_axi_monitor();
-    axi_monitor_cfg_obj = cust_axi_monitor_cfg::type_id::create("axi_monitor_cfg_obj");
-    uvm_config_db#(svt_axi_system_configuration)::set(this, "axi_monitor_env", "cfg", axi_monitor_cfg_obj);
-    axi_monitor_env = svt_axi_system_env::type_id::create("axi_monitor_env", this);
-  endfunction
-
-  virtual function void build_atb();
-    virtual svt_atb_if atb_vif;
-    if (!uvm_config_db#(virtual svt_atb_if)::get(this, "", "atb_vif", atb_vif)) begin
-      `uvm_fatal("NO_ATB_VIF", "ATB interface not found in config_db")
+    if (cfg.enable_predictor) begin
+      predictor = debug_sys_predictor::type_id::create("predictor", this);
     end
 
-    atb_cfg_obj = cust_atb_cfg::type_id::create("atb_cfg_obj");
-    atb_cfg_obj.vif = atb_vif;  // Pass interface to config constructor
+    if (cfg.enable_coverage) begin
+      coverage = debug_sys_coverage::type_id::create("coverage", this);
+    end
 
-    svt_config_object_db#(svt_atb_system_configuration)::set(this, "atb_env", "cfg", atb_cfg_obj);
-    atb_env = svt_atb_system_env::type_id::create("atb_env", this);
+    vseqr = debug_sys_virtual_sequencer::type_id::create("vseqr", this);
   endfunction
 
   virtual function void connect_phase(uvm_phase phase);
     super.connect_phase(phase);
 
-    // Flow: in-monitor -> predictor -> scoreboard(expected);
-    //      out-monitor -> scoreboard(actual).
-`ifdef DEBUG_PORT_JTAG
-    vseqr.port_sequencer = driver_agent.transaction_seqr;
-    driver_agent.txrx_mon.rx_xact_observed_port.connect(predictor.debug_in);
-    controller_agent.txrx_mon.rx_xact_observed_port.connect(scoreboard.debug_actual);
-`elsif DEBUG_PORT_SWD
-    vseqr.port_sequencer = master_agent.transaction_seqr;
-    master_agent.master_mon.rx_xact_observed_port.connect(predictor.debug_in);
-    slave_agent.slave_mon.rx_xact_observed_port.connect(scoreboard.debug_actual);
-`endif
-    predictor.debug_exp.connect(scoreboard.debug_exp);
+    // ==========================================
+    // 1. 虚拟 sequencer 连接到各协议 sequencer
+    // ==========================================
 
-    if (cfg.enable_apb_ral) begin
-      vseqr.apb_sequencer = apb_master_env.master.sequencer;
-      vseqr.regmodel = regmodel;
+    // Debug Port: JTAG 和 SWD 都连上
+    vseqr.jtag_sequencer = port_env.jtag_driver_agent.transaction_seqr;
+    vseqr.swd_sequencer  = port_env.swd_master_agent.transaction_seqr;
+
+    // APB sequencer + regmodel
+    if (cfg.enable_apb_ral && apb_env != null) begin
+      vseqr.apb_sequencer = apb_env.get_master_sequencer();
+      vseqr.regmodel      = apb_env.regmodel;
+      regmodel            = apb_env.regmodel;
+
+      // 给其他组件用的 resource
       uvm_resource_db#(svt_apb_slave_agent)::set(
-        "debug_sys_env", "apb_slave0", apb_slave_env.slave[0], this);
-      apb_master_env.master.monitor.item_observed_port.connect(predictor.apb_in);
-      apb_slave_env.slave[0].monitor.item_observed_port.connect(scoreboard.apb_actual);
+        "debug_sys_env", "apb_slave0", apb_env.get_slave_agent(0), this);
     end
-    predictor.apb_exp.connect(scoreboard.apb_exp);
 
-    if (cfg.enable_axi_monitor) begin
-      axi_monitor_env.master[0].monitor.item_observed_port.connect(predictor.axi_in);
-      axi_monitor_env.slave[0].monitor.item_observed_port.connect(scoreboard.axi_actual);
+    // ATB sequencer
+    if (cfg.enable_atb && atb_env != null) begin
+      vseqr.atb_sequencer = atb_env.get_sequencer();
     end
-    predictor.axi_exp.connect(scoreboard.axi_exp);
 
-    if (cfg.enable_atb) begin
-      vseqr.atb_sequencer = atb_env.sequencer;
-      atb_env.master[0].monitor.item_observed_port.connect(predictor.atb_in);
-      atb_env.slave[0].monitor.item_observed_port.connect(scoreboard.atb_actual);
+    `uvm_info("ENV", $sformatf("Active debug port protocol: %s",
+      cfg.port_protocol.name()), UVM_MEDIUM)
+
+    // ==========================================
+    // 2. Scoreboard 连接 (Master->exp, Slave->actual)
+    // ==========================================
+
+    // APB scoreboard 连接
+    if (cfg.enable_apb_ral && apb_env != null) begin
+      if (cfg.enable_predictor && predictor != null) begin
+        apb_env.apb_master_env.master.monitor.item_observed_port.connect(
+          predictor.apb_in);
+        predictor.apb_exp.connect(scoreboard.apb_exp);
+      end else begin
+        apb_env.apb_master_env.master.monitor.item_observed_port.connect(
+          scoreboard.apb_exp);
+      end
+      apb_env.apb_slave_env.slave[0].monitor.item_observed_port.connect(
+        scoreboard.apb_actual);
+      `uvm_info("ENV", "APB monitors connected to scoreboard", UVM_MEDIUM)
     end
-    predictor.atb_exp.connect(scoreboard.atb_exp);
+
+    // ATB scoreboard 连接
+    if (cfg.enable_atb && atb_env != null) begin
+      if (cfg.enable_predictor && predictor != null) begin
+        atb_env.atb_env.master[0].monitor.item_observed_port.connect(
+          predictor.atb_in);
+        predictor.atb_exp.connect(scoreboard.atb_exp);
+      end else begin
+        atb_env.atb_env.master[0].monitor.item_observed_port.connect(
+          scoreboard.atb_exp);
+      end
+      atb_env.atb_env.slave[0].monitor.item_observed_port.connect(
+        scoreboard.atb_actual);
+      `uvm_info("ENV", "ATB monitors connected to scoreboard", UVM_MEDIUM)
+    end
+
+    // ==========================================
+    // 3. Coverage 连接
+    // ==========================================
+    if (cfg.enable_coverage && coverage != null) begin
+      if (cfg.enable_apb_ral && apb_env != null) begin
+        apb_env.apb_master_env.master.monitor.item_observed_port.connect(
+          coverage.apb_export);
+        `uvm_info("ENV", "APB coverage connected", UVM_MEDIUM)
+      end
+    end
+
+    `uvm_info("ENV", "Environment connect phase complete", UVM_MEDIUM)
   endfunction
 
 endclass
