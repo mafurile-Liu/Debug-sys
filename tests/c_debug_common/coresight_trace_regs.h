@@ -122,7 +122,13 @@
 #define TMC_RRPHI               0x038U  /* RAM Read Pointer High */
 #define TMC_RWPHI               0x03cU  /* RAM Write Pointer High */
 #define TMC_CTL_TRACECAPTEN     (1U << 0)  /* CTL bit0: set to START trace capture (TRM 4.8.5 step 8) */
-#define TMC_AXICTL_DEFAULT      0x00000000U  /* placeholder; program per SoC AXI integration (burst/AxCACHE/AxPROT) */
+/* AXICTL (TRM 9.18.15): [3:0] WrBurstLen = max AXI data transfers per burst,
+ * 0 = 1 beat .. 15 = 16 beats. Arcache/Awcache fields write 0x0 if an invalid
+ * value is programmed; ProtCtrlBit/ProtCtrlB drive arprot/awprot. Leave them
+ * 0 unless the SoC integration requires otherwise. */
+#define TMC_AXICTL_WR_BURST_MASK   0x0000000FU
+#define TMC_AXICTL_WR_BURST_16     0x0000000FU  /* WrBurstLen=15 -> 16-beat AXI bursts */
+#define TMC_AXICTL_DEFAULT         TMC_AXICTL_WR_BURST_16
 
 #define TMC_MODE_CIRCULAR_BUFFER 0x00000000U
 #define TMC_MODE_SOFTWARE_FIFO_1 0x00000001U

@@ -146,6 +146,20 @@ static void catu_enable_addrerr(uint32_t base, uint32_t buf_addr)
 }
 
 /* ----------------------------------------------------------------------
+ * Real circular-buffer capacity of a TMC.
+ * The CB wrap/full point is RSZ*4 bytes (RSZ is read-only, hw-fixed) - NOT
+ * the buf_size the test passes in. In CB mode STS.Full sets when RWP wraps
+ * this top, the FULL output drives the buffer IRQ, and Full stays set until
+ * it is written 0 in Disabled state (TraceCaptEn=0). Capture keeps running
+ * and overwrites old trace.
+ * Source: ARM SoC-600 TRM 9.18.2 STS (p837), 9.18.16 RSZ.
+ * ---------------------------------------------------------------------- */
+static uint32_t tmc_capacity_bytes(uint32_t base)
+{
+    return R32(base + TMC_RSZ) * 4U;
+}
+
+/* ----------------------------------------------------------------------
  * Configure a TMC in ETR mode.
  * Offsets per ARM SoC-600 css600_tmc_etr (100806_0800_18 TRM 9.18).
  * ETR writes are routed through CATU; buffer ADDRESS is DBALO/DBAHI.
@@ -156,6 +170,12 @@ static void catu_enable_addrerr(uint32_t base, uint32_t buf_addr)
 static void tmc_etr_config(uint32_t base, uint32_t buf_addr, uint32_t buf_size)
 {
     (void)buf_size;  /* css600_tmc_etr has no DBSIZE; RAM size is RSZ (RO) */
+
+    /* CB wrap point = RSZ*4 bytes. When RWP wraps this top, STS.Full sets and
+     * the FULL output drives the buffer IRQ - expected in CB mode, capture
+     * keeps overwriting. Full clears only in Disabled state (TraceCaptEn=0). */
+    c_uvm_info("tmc_etr_config: CB capacity RSZ*4 = %0d bytes",
+               tmc_capacity_bytes(base));
     W32(base + TMC_MODE,    TMC_MODE_CIRCULAR_BUFFER);
     W32(base + TMC_DBALO,   buf_addr);
     W32(base + TMC_DBAHI,   0U);
