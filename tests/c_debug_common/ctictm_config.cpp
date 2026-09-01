@@ -10,7 +10,8 @@
  *   3. Which local CTI trigger outputs respond to that channel.
  *
  * input_mask selects local trigger inputs 0..8.
- * output_mask selects local trigger outputs 0..8.
+ * output_mask selects local trigger outputs 0..31.
+ * The SoC-600 css600_cti supports up to 32 trigger inputs and outputs.
  * Set a bit to map that local trigger to the selected CTM channel.
  * ---------------------------------------------------------------------- */
 void aon_cti_ctm_config(uint32_t channel,
@@ -26,12 +27,12 @@ void aon_cti_ctm_config(uint32_t channel,
     c_uvm_info("aon_cti_ctm_config: channel=%0d in_mask=0x%x out_mask=0x%x",
                channel, input_mask, output_mask);
 
-    W32(base + CTI_CTR, CTI_CTR_EN);
+    W32(base + CTI_CONTROL, CTI_CONTROL_EN);
 
     gate = R32(base + CTI_GATE);
     W32(base + CTI_GATE, gate | CTI_CHNL(channel));
 
-    for (i = 0U; i < 9U; ++i) {
+    for (i = 0U; i < CTI_TRIGGER_COUNT; ++i) {
         if ((input_mask & (1U << i)) != 0U) {
             inen = R32(base + CTI_INEN(i));
             W32(base + CTI_INEN(i), inen | CTI_CHNL(channel));
@@ -47,5 +48,5 @@ void aon_cti_ctm_config(uint32_t channel,
 void aon_cti_ctm_pulse(uint32_t channel)
 {
     c_uvm_info("aon_cti_ctm_pulse: channel=%0d", channel);
-    W32(AON_CTI_BASE + CTI_APPPULSE, CTI_CHNL(channel));
+    W32(AON_CTI_BASE + CTI_APP_PULSE, CTI_CHNL(channel));
 }

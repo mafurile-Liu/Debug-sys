@@ -25,16 +25,63 @@
 
 #include "drv_debug.h"
 
+/* ---------------------------------------------------------------------- */
+/* HiFi5s TRAX -> ATB output control.                                      */
+/* ---------------------------------------------------------------------- */
+
+void hifi_trace_atb_start(uint8_t atid, uint8_t smper, bool enable_trace_ram)
+{
+    uint32_t ctrl = TRAXCTRL_ATEN;
+
+    ctrl |= static_cast<uint32_t>(atid & TRAXCTRL_ATID_MASK)
+            << TRAXCTRL_ATID_SHIFT;
+    ctrl |= static_cast<uint32_t>(smper & TRAXCTRL_SMPER_MASK)
+            << TRAXCTRL_SMPER_SHIFT;
+
+    if (enable_trace_ram) {
+        ctrl |= TRAXCTRL_TMEN;
+    }
+
+    ctrl |= TRAXCTRL_TREN;
+
+    W32(HIFI_TRAX_BASE + HIFI_TRAXCTRL, 0U);
+    W32(HIFI_TRAX_BASE + HIFI_TRAXADDR, 0U);
+    W32(HIFI_TRAX_BASE + HIFI_TRAXCTRL, ctrl);
+}
+
+void hifi_trace_atb_stop(void)
+{
+    uint32_t ctrl = R32(HIFI_TRAX_BASE + HIFI_TRAXCTRL);
+    ctrl |= TRAXCTRL_TRSTP;
+    W32(HIFI_TRAX_BASE + HIFI_TRAXCTRL, ctrl);
+
+    /* Wait for TRAXSTAT.TRACT to clear before returning. */
+    uint32_t timeout = 100000U;
+    while ((hifi_trace_atb_status() & TRAXSTAT_TRACT) != 0U) {
+        if (timeout == 0U) {
+            c_uvm_error("hifi_trace_atb_stop: trace did not stop");
+            return;
+        }
+        --timeout;
+    }
+}
+
+uint32_t hifi_trace_atb_status(void)
+{
+    return R32(HIFI_TRAX_BASE + HIFI_TRAXSTAT);
+}
+
 /* ----------------------------------------------------------------------
  * Enable a CoreSight Funnel and select one or more slave ports.
- * FUNNEL_CTRL[15:8] is a bit mask; multiple ATB sources can be merged.
- * Source: ARM IHI0029G + ARM 100806_0800_18 SoC-600 TRM.
+ * FUNNELCONTROL[7:0] is the receiver-interface enable mask.
+ * Source: ARM 100806_0800_18 SoC-600 TRM, section 9.8.1.
  * ---------------------------------------------------------------------- */
 static void funnel_enable(uint32_t base, uint32_t slave_port_mask)
 {
-    uint32_t ctrl = FUNNEL_CTRL_EN
-                  | ((slave_port_mask & FUNNEL_CTRL_SLAVE_EN_MASK)
-                     << FUNNEL_CTRL_SLAVE_EN_SHIFT);
+    uint32_t ctrl = R32(base + FUNNEL_CTRL);
+    ctrl &= ~FUNNEL_CTRL_RX_EN_MASK;
+    ctrl |= (slave_port_mask & FUNNEL_CTRL_RX_EN_MASK)
+            << FUNNEL_CTRL_RX_EN_SHIFT;
     W32(base + FUNNEL_CTRL, ctrl);
 }
 
@@ -109,7 +156,7 @@ static void catu_enable_addrerr(uint32_t base, uint32_t buf_addr)
 static void tmc_etr_config(uint32_t base, uint32_t buf_addr, uint32_t buf_size)
 {
     (void)buf_size;  /* css600_tmc_etr has no DBSIZE; RAM size is RSZ (RO) */
-    W32(base + TMC_MODE,    TMC_MODE_ETR);
+    W32(base + TMC_MODE,    TMC_MODE_CIRCULAR_BUFFER);
     W32(base + TMC_DBALO,   buf_addr);
     W32(base + TMC_DBAHI,   0U);
     W32(base + TMC_AXICTL,  TMC_AXICTL_DEFAULT);
@@ -117,6 +164,7 @@ static void tmc_etr_config(uint32_t base, uint32_t buf_addr, uint32_t buf_size)
     W32(base + TMC_RWPHI,   0U);
     W32(base + TMC_RRP,     buf_addr);
     W32(base + TMC_RRPHI,   0U);
+    W32(base + TMC_CTL,     TMC_CTL_TRACECAPTEN);
 }
 
 /* ----------------------------------------------------------------------
@@ -126,7 +174,18 @@ static void tmc_etr_config(uint32_t base, uint32_t buf_addr, uint32_t buf_size)
  * ---------------------------------------------------------------------- */
 static void tmc_etf_config(uint32_t base)
 {
-    W32(base + TMC_MODE, TMC_MODE_HW_FIFO);
+    W32(base + TMC_MODE, TMC_MODE_CIRCULAR_BUFFER);
+    W32(base + TMC_CTL,  TMC_CTL_TRACECAPTEN);
+}
+
+static void tmc_etf_hw_fifo_config(uint32_t base)
+{
+    W32(base + TMC_MODE, TMC_MODE_HARDWARE_FIFO);
+    W32(base + TMC_BUFWM, 0U);
+    W32(base + TMC_RWP, 0U);
+    W32(base + TMC_RRP, 0U);
+    W32(base + TMC_FFCR, TMC_FFCR_ENTI | TMC_FFCR_ENFT);
+    W32(base + TMC_CTL,  TMC_CTL_TRACECAPTEN);
 }
 
 /* ----------------------------------------------------------------------
@@ -134,10 +193,21 @@ static void tmc_etf_config(uint32_t base)
  * as possible. SW FIFO + BUFWM=MEM_SIZE-1: full after 1 word.
  * Source: ARM SoC-600 TRM 9.16.12 BUFWM, 9.16.7 CTL.
  * ---------------------------------------------------------------------- */
-static void tmc_etf_full_int_config(uint32_t base)
+static void tmc_etr_swf1_full_int_config(uint32_t base,
+                                          uint32_t buf_addr,
+                                          uint32_t buf_size)
 {
     uint32_t mem_size = R32(base + TMC_RSZ);     /* RAM size in 32-bit words (RO) */
-    W32(base + TMC_MODE,  TMC_MODE_SW_FIFO);
+    (void)buf_size;
+
+    W32(base + TMC_MODE,  TMC_MODE_SOFTWARE_FIFO_1);
+    W32(base + TMC_DBALO, buf_addr);
+    W32(base + TMC_DBAHI, 0U);
+    W32(base + TMC_AXICTL, TMC_AXICTL_DEFAULT);
+    W32(base + TMC_RWP,   buf_addr);
+    W32(base + TMC_RWPHI, 0U);
+    W32(base + TMC_RRP,   buf_addr);
+    W32(base + TMC_RRPHI, 0U);
     W32(base + TMC_BUFWM, mem_size ? (mem_size - 1U) : 0U);
     W32(base + TMC_CTL,   TMC_CTL_TRACECAPTEN); /* start capture -> full IRQ */
 }
@@ -186,29 +256,37 @@ void aon_trace_init(trace_mode_t mode,
         tmc_etf_config(AON_ETF_BASE);
         break;
 
-    case TRACE_MODE_ETR_CATU:
+    case TRACE_MODE_ETF_ATB_ONLY:
         replicator_config(AON_REPLICATOR_BASE,
-                          REPL_IDFILTER_DISCARD_ALL,
+                          REPL_IDFILTER_PASS_ALL,
+                          REPL_IDFILTER_DISCARD_ALL);
+        tmc_etf_hw_fifo_config(AON_ETF_BASE);
+        break;
+
+    case TRACE_MODE_ETF_CATU_TRANSLATE:
+        replicator_config(AON_REPLICATOR_BASE,
+                          REPL_IDFILTER_PASS_ALL,
                           REPL_IDFILTER_PASS_ALL);
-        tmc_etf_config(AON_ETF_BASE);
+        tmc_etf_hw_fifo_config(AON_ETF_BASE);
         catu_enable_translate(AON_CATU_BASE, catu_sladdr, etr_buf_addr);
         tmc_etr_config(AON_ETR_BASE, etr_buf_addr, etr_buf_size);
         break;
 
-    case TRACE_MODE_CATU_BYPASS:
+    case TRACE_MODE_ETF_CATU_BYPASS:
         replicator_config(AON_REPLICATOR_BASE,
                           REPL_IDFILTER_PASS_ALL,
                           REPL_IDFILTER_PASS_ALL);
-        tmc_etf_config(AON_ETF_BASE);
+        tmc_etf_hw_fifo_config(AON_ETF_BASE);
         catu_enable_passthrough(AON_CATU_BASE, etr_buf_addr);
         tmc_etr_config(AON_ETR_BASE, etr_buf_addr, etr_buf_size);
         break;
 
-    case TRACE_MODE_FULL_INT:
+    case TRACE_MODE_ETR_SWF1_FULL_INT:
         replicator_config(AON_REPLICATOR_BASE,
                           REPL_IDFILTER_PASS_ALL,
-                          REPL_IDFILTER_DISCARD_ALL);
-        tmc_etf_full_int_config(AON_ETF_BASE);
+                          REPL_IDFILTER_PASS_ALL);
+        tmc_etf_hw_fifo_config(AON_ETF_BASE);
+        tmc_etr_swf1_full_int_config(AON_ETR_BASE, etr_buf_addr, etr_buf_size);
         break;
 
     case TRACE_MODE_CATU_ADDRERR:
@@ -255,29 +333,37 @@ void dbg_ss_trace_init(trace_mode_t mode,
         tmc_etf_config(SYS_ETF_BASE);
         break;
 
-    case TRACE_MODE_ETR_CATU:
+    case TRACE_MODE_ETF_ATB_ONLY:
         replicator_config(SYS_REPLICATOR_BASE,
-                          REPL_IDFILTER_DISCARD_ALL,
+                          REPL_IDFILTER_PASS_ALL,
+                          REPL_IDFILTER_DISCARD_ALL);
+        tmc_etf_hw_fifo_config(SYS_ETF_BASE);
+        break;
+
+    case TRACE_MODE_ETF_CATU_TRANSLATE:
+        replicator_config(SYS_REPLICATOR_BASE,
+                          REPL_IDFILTER_PASS_ALL,
                           REPL_IDFILTER_PASS_ALL);
-        tmc_etf_config(SYS_ETF_BASE);
+        tmc_etf_hw_fifo_config(SYS_ETF_BASE);
         catu_enable_translate(SYS_CATU_BASE, catu_sladdr, etr_buf_addr);
         tmc_etr_config(SYS_ETR_BASE, etr_buf_addr, etr_buf_size);
         break;
 
-    case TRACE_MODE_CATU_BYPASS:
+    case TRACE_MODE_ETF_CATU_BYPASS:
         replicator_config(SYS_REPLICATOR_BASE,
                           REPL_IDFILTER_PASS_ALL,
                           REPL_IDFILTER_PASS_ALL);
-        tmc_etf_config(SYS_ETF_BASE);
+        tmc_etf_hw_fifo_config(SYS_ETF_BASE);
         catu_enable_passthrough(SYS_CATU_BASE, etr_buf_addr);
         tmc_etr_config(SYS_ETR_BASE, etr_buf_addr, etr_buf_size);
         break;
 
-    case TRACE_MODE_FULL_INT:
+    case TRACE_MODE_ETR_SWF1_FULL_INT:
         replicator_config(SYS_REPLICATOR_BASE,
                           REPL_IDFILTER_PASS_ALL,
-                          REPL_IDFILTER_DISCARD_ALL);
-        tmc_etf_full_int_config(SYS_ETF_BASE);
+                          REPL_IDFILTER_PASS_ALL);
+        tmc_etf_hw_fifo_config(SYS_ETF_BASE);
+        tmc_etr_swf1_full_int_config(SYS_ETR_BASE, etr_buf_addr, etr_buf_size);
         break;
 
     case TRACE_MODE_CATU_ADDRERR:

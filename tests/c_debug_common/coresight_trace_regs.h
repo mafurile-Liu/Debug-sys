@@ -38,6 +38,28 @@
 /* AON crash_dump is a trace source into AON_FUNNEL slave port 0. */
 #define AON_CRASH_DUMP_FUNNEL_SLAVE_PORT 0U
 
+/* HiFi5s debug/TRAX APB base and AON trace-tree slave port. */
+#define HIFI_TRAX_BASE       0x4A240000U
+#define HIFI_TRACE_FUNNEL_SLAVE_PORT 3U
+
+/* Xtensa TRAX register offsets. */
+#define HIFI_TRAXCTRL        0x0004U
+#define HIFI_TRAXSTAT        0x0008U
+#define HIFI_TRAXADDR        0x0010U
+
+/* TRAXCTRL bit fields. */
+#define TRAXCTRL_ATEN        (1U << 31)
+#define TRAXCTRL_ATID_SHIFT  24
+#define TRAXCTRL_ATID_MASK   0x7FU
+#define TRAXCTRL_SMPER_SHIFT 12
+#define TRAXCTRL_SMPER_MASK  0x07U
+#define TRAXCTRL_TMEN        (1U << 7)
+#define TRAXCTRL_TREN        (1U << 0)
+#define TRAXCTRL_TRSTP       (1U << 1)
+
+/* TRAXSTAT bit fields. */
+#define TRAXSTAT_TRACT       (1U << 0)
+
 /* SYS / dbg_ss trace tree (APBIC_SYS_DBG expander1)
  * Trace source (per AON_SS架构.png): STM */
 #define SYS_STM_BASE         0x4A400000U
@@ -51,20 +73,23 @@
 /* M52-specific crash dump aperture. */
 #define M52_CRASH_DUMP_BASE  0x4A300000U
 
+/* AON system SRAM base used as the ETR trace buffer. */
+#define AON_SRAM_BASE_ADDR   0x27400000U
+
 /* ======================================================================
- * CoreSight Funnel (CSTF)
- * Source: ARM IHI0029G + ARM 100806_0800_18 SoC-600 TRM
- * FUNNEL_CTRL[15:8] is a bit mask; multiple slave ports can be enabled
- * simultaneously.
+ * CoreSight SoC-600 css600_atbfunnel_prog
+ * Source: ARM 100806_0800_18 SoC-600 TRM, section 9.8.1.
+ * FUNNELCONTROL[7:0] contains ENS0-ENS7, one receiver-enable bit per port.
+ * [11:8] is HT and [12] is FLUSH_NORMAL.
  * ====================================================================== */
 #define FUNNEL_CTRL            0x000U
-#define FUNNEL_PSCR            0x004U
+#define FUNNEL_PRIORITYCONTROL 0x004U
 
-#define FUNNEL_CTRL_EN         (1U << 0)
-#define FUNNEL_CTRL_MINHT_SHIFT     1
-#define FUNNEL_CTRL_SLAVE_EN_SHIFT  8
-#define FUNNEL_CTRL_SLAVE_EN_MASK   0xFFU
-#define FUNNEL_CTRL_HT_SHIFT       16
+#define FUNNEL_CTRL_ENS0       (1U << 0)
+#define FUNNEL_CTRL_RX_EN_SHIFT     0
+#define FUNNEL_CTRL_RX_EN_MASK     0x3FU
+#define FUNNEL_CTRL_HT_SHIFT        8
+#define FUNNEL_CTRL_FLUSH_NORMAL   (1U << 12)
 
 /* ======================================================================
  * CoreSight TMC (Trace Memory Controller) - ETF / ETR
@@ -91,6 +116,7 @@
  *   RRP/RRP_HI = RAM read pointer; TRM recommends RRP = RWP.
  *   CTL.TraceCaptEn (bit0) must be set to actually start trace capture. */
 #define TMC_CTL                 0x020U  /* ARM SoC-600 css600_tmc_etr: Control Register */
+#define TMC_FFCR                0x304U  /* ARM SoC-600 css600_tmc_etf: Formatter and Flush Control Register */
 #define TMC_RRP                 0x014U  /* RAM Read Pointer */
 #define TMC_RWP                 0x018U  /* RAM Write Pointer */
 #define TMC_RRPHI               0x038U  /* RAM Read Pointer High */
@@ -98,9 +124,13 @@
 #define TMC_CTL_TRACECAPTEN     (1U << 0)  /* CTL bit0: set to START trace capture (TRM 4.8.5 step 8) */
 #define TMC_AXICTL_DEFAULT      0x00000000U  /* placeholder; program per SoC AXI integration (burst/AxCACHE/AxPROT) */
 
-#define TMC_MODE_HW_FIFO       0x00000000U
-#define TMC_MODE_SW_FIFO       0x00000001U
-#define TMC_MODE_ETR           0x00000002U
+#define TMC_MODE_CIRCULAR_BUFFER 0x00000000U
+#define TMC_MODE_SOFTWARE_FIFO_1 0x00000001U
+#define TMC_MODE_HARDWARE_FIFO   0x00000002U
+#define TMC_MODE_SOFTWARE_FIFO_2 0x00000003U
+
+#define TMC_FFCR_ENTI          (1U << 1)
+#define TMC_FFCR_ENFT          (1U << 0)
 
 /* ======================================================================
  * CoreSight Replicator
@@ -153,18 +183,19 @@
 
 #define CATU_CONTROL_EN        (1U << 0)
 #define CATU_MODE_PASSTHROUGH  0x00000000U
-#define CATU_SLADDR_DEFAULT   0x27400000U  /* default CATU scatter-list address (4KB-aligned) */
+#define CATU_SLADDR_DEFAULT  (AON_SRAM_BASE_ADDR + 0x00010000U) /* default CATU scatter-list address */
 #define CATU_MODE_TRANSLATE    0x00000001U
 
 /* ======================================================================
  * Trace startup mode selectors
  * ====================================================================== */
 typedef enum {
-    TRACE_MODE_ETF_ONCHIP = 0,   /* source -> funnel -> ETF (on-chip FIFO) */
-    TRACE_MODE_ETR_CATU   = 1,   /* source -> funnel -> replicator -> ETR -> CATU -> DRAM */
-    TRACE_MODE_CATU_BYPASS  = 2,  /* funnel -> replicator(both) -> ETF + ETR -> CATU(pass-through) */
-    TRACE_MODE_FULL_INT  = 3,  /* replicator(port0) -> ETF(SW FIFO, BUFWM=max) -> full IRQ after 1 word */
-    TRACE_MODE_CATU_ADDRERR = 4  /* CATU INADDR deliberately wrong -> ETR write triggers ADDRERR IRQ */
+    TRACE_MODE_ETF_ONCHIP = 0,   /* source -> funnel -> ETF (circular buffer) */
+    TRACE_MODE_ETF_ATB_ONLY = 1, /* source -> funnel -> ETF -> ATB only */
+    TRACE_MODE_ETF_CATU_TRANSLATE = 2, /* source -> funnel -> ETF -> replicator -> ATB + ETR -> CATU */
+    TRACE_MODE_ETF_CATU_BYPASS = 3, /* source -> funnel -> ETF -> replicator -> ATB + ETR -> CATU */
+    TRACE_MODE_ETR_SWF1_FULL_INT = 4, /* ETF -> replicator -> ATB + ETR(SWF1, BUFWM=max) -> full IRQ */
+    TRACE_MODE_CATU_ADDRERR = 5  /* CATU INADDR deliberately wrong -> ETR write triggers ADDRERR IRQ */
 } trace_mode_t;
 
 /* ======================================================================
@@ -172,19 +203,20 @@ typedef enum {
  * ====================================================================== */
 #define AON_CTI_BASE         0x4A201000U
 
-#define CTI_CTR                 0x000U
-#define CTI_INACK               0x010U
-#define CTI_APPSET              0x014U
-#define CTI_APPCLEAR            0x018U
-#define CTI_APPPULSE            0x01CU
-#define CTI_TRIN_STATUS         0x130U
-#define CTI_TROUT_STATUS        0x134U
-#define CTI_CHIN_STATUS         0x138U
-#define CTI_CHOU_STATUS         0x13CU
+#define CTI_CONTROL            0x000U
+#define CTI_TRIGGER_COUNT       32U
+#define CTI_INTACK              0x010U
+#define CTI_APP_SET             0x014U
+#define CTI_APP_CLEAR           0x018U
+#define CTI_APP_PULSE           0x01CU
+#define CTI_TRIG_IN_STATUS      0x130U
+#define CTI_TRIG_OUT_STATUS     0x134U
+#define CTI_CH_IN_STATUS        0x138U
+#define CTI_CH_OUT_STATUS       0x13CU
 #define CTI_GATE                0x140U
-#define CTI_DEVCTL              0x150U
+#define CTI_ASICCTRL            0x144U
 
-#define CTI_CTR_EN              (1U << 0)
+#define CTI_CONTROL_EN          (1U << 0)
 #define CTI_CHNL(x)             (1U << (x))
 #define CTI_INEN(n)             (0x020U + (4U * (n)))
 #define CTI_OUTEN(n)            (0x0A0U + (4U * (n)))

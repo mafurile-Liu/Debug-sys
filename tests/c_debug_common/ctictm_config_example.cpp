@@ -10,8 +10,8 @@ CPU_TEST_START
     aon_cti_ctm_pulse(0U);
 
     c_uvm_info("aon_cti_ctm_pulse_case: chout=0x%x trout=0x%x",
-               R32(AON_CTI_BASE + CTI_CHOU_STATUS),
-               R32(AON_CTI_BASE + CTI_TROUT_STATUS));
+               R32(AON_CTI_BASE + CTI_CH_OUT_STATUS),
+               R32(AON_CTI_BASE + CTI_TRIG_OUT_STATUS));
 
     C_PASS();
 CPU_TEST_END
