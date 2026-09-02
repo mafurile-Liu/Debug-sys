@@ -1,0 +1,9 @@
+# Enforce LF line endings: CRLF shows up as ^M in Linux (TOT) editors.
+# This file overrides core.autocrlf for everything under c_debug_common.
+# Do not remove - it is the guard against CRLF creeping back in.
+*.h    text eol=lf
+*.cpp  text eol=lf
+*.c    text eol=lf
+*.md   text eol=lf
+*.tcl  text eol=lf
+*.f    text eol=lf
