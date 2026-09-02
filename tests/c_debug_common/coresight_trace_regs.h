@@ -119,6 +119,8 @@
  *   CTL.TraceCaptEn (bit0) must be set to actually start trace capture. */
 #define TMC_CTL                 0x020U  /* ARM SoC-600 css600_tmc_etr: Control Register */
 #define TMC_FFCR                0x304U  /* ARM SoC-600 css600_tmc_etf: Formatter and Flush Control Register */
+#define TMC_RRD                 0x010U  /* RAM Read Data (APB read triggers AXI AR at RRP for ETR) */
+#define TMC_RWD                 0x024U  /* RAM Write Data */
 #define TMC_RRP                 0x014U  /* RAM Read Pointer */
 #define TMC_RWP                 0x018U  /* RAM Write Pointer */
 #define TMC_RRPHI               0x038U  /* RAM Read Pointer High */
@@ -192,6 +194,15 @@
 #define CATU_CONTROL_EN        (1U << 0)
 #define CATU_MODE_PASSTHROUGH  0x00000000U
 #define CATU_SLADDR_DEFAULT  (AON_SRAM_BASE_ADDR + 0x00010000U) /* default CATU scatter-list address */
+
+/* CATU scatter-list geometry (TRM 4.10.7.1): one 4KB list = 2x2KB subpages.
+ * bottom 2KB: 256 x 64-bit page entries (each = one 4KB trace page).
+ * top 2KB:    next/prev linked-list addresses (2 entries).
+ * one list covers 256 x 4KB = 1MB of VA. entry bit[0] = valid. */
+#define CATU_SL_PAGES_MAX      256U   /* page entries per 4KB list */
+#define CATU_SL_ENT_SIZE       8U     /* 64-bit entry */
+#define CATU_SL_VALID          0x1U   /* entry bit[0] = page address valid */
+#define CATU_SL_BYTES_PER_PAGE 0x1000U/* each entry maps one 4KB page */
 #define CATU_MODE_TRANSLATE    0x00000001U
 
 /* ======================================================================

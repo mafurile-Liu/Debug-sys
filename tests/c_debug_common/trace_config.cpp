@@ -146,6 +146,54 @@ static void catu_enable_addrerr(uint32_t base, uint32_t buf_addr)
 }
 
 /* ----------------------------------------------------------------------
+ * Build a CATU scatter list in system memory (TRM 4.10.7.1).
+ * One 4KB list at SLA (4KB-aligned): bottom 2KB = 256 x 64-bit page
+ * entries, top 2KB = next/prev linked-list addresses. Entry = PA[63:12] |
+ * valid(bit0); a valid=0 entry terminates the list. This helper
+ * identity-maps num_pages consecutive 4KB pages starting at page_base,
+ * then writes an invalid entry so the walker stops.
+ * The CATU fetches this list with AXI AR reads when enabled in translate
+ * mode (walker init + TLB miss/prefetch, TRM 4.10.7.2).
+ * ---------------------------------------------------------------------- */
+void etr_scatter_list_build(uint32_t sla, uint32_t page_base, uint32_t num_pages)
+{
+    uint32_t i;
+    c_uvm_info("etr_scatter_list_build: sla=0x%08x page_base=0x%08x pages=%0d",
+               sla, page_base, num_pages);
+    for (i = 0U; i < CATU_SL_PAGES_MAX; ++i) {
+        uint32_t lo = 0U;   /* valid=0 terminates the walk */
+        uint32_t hi = 0U;
+        if (i < num_pages) {
+            lo = (page_base + i * CATU_SL_BYTES_PER_PAGE) | CATU_SL_VALID;
+        }
+        W32(sla + i * CATU_SL_ENT_SIZE,      lo);
+        W32(sla + i * CATU_SL_ENT_SIZE + 4U, hi);
+    }
+    /* top 2KB: next/prev list links - invalid (single list) */
+    W32(sla + CATU_SL_PAGES_MAX * CATU_SL_ENT_SIZE,      0U);
+    W32(sla + CATU_SL_PAGES_MAX * CATU_SL_ENT_SIZE + 4U, 0U);
+    W32(sla + (CATU_SL_PAGES_MAX + 1U) * CATU_SL_ENT_SIZE,      0U);
+    W32(sla + (CATU_SL_PAGES_MAX + 1U) * CATU_SL_ENT_SIZE + 4U, 0U);
+}
+
+/* ----------------------------------------------------------------------
+ * Prepare ETR trace read-back via RRD: stopping capture (TraceCaptEn=0)
+ * and programming RRP makes each RRD APB read issue an AXI AR access at
+ * RRP through the CATU, returning 32 bits of trace data (TRM 9.18.5:
+ * RWP/RRP = "the AXI address used to access the trace memory with RRD
+ * read accesses"). RRD reads are valid in Disabled or CB/SWF1 modes;
+ * RRP advances one memory word (16B @ 128-bit ATB) per completed read.
+ * ---------------------------------------------------------------------- */
+void tmc_etr_readback_start(uint32_t base, uint32_t rrp_addr)
+{
+    W32(base + TMC_CTL, 0U);            /* TraceCaptEn=0 -> Disabled state */
+    W32(base + TMC_RRPHI, 0U);
+    W32(base + TMC_RRP,  rrp_addr);
+    c_uvm_info("tmc_etr_readback_start: RRP=0x%08x (RRD reads now issue AXI AR)",
+               rrp_addr);
+}
+
+/* ----------------------------------------------------------------------
  * Real circular-buffer capacity of a TMC.
  * The CB wrap/full point is RSZ*4 bytes. For the ETR variant RSZ is RW
  * (software-programmed buffer size); for the ETB variant it is RO = MEM_SIZE.
@@ -298,6 +346,8 @@ void aon_trace_init(trace_mode_t mode,
                           REPL_IDFILTER_PASS_ALL,
                           REPL_IDFILTER_PASS_ALL);
         tmc_etf_hw_fifo_config(AON_ETF_BASE);
+        etr_scatter_list_build(catu_sladdr, etr_buf_addr,
+                               etr_buf_size / CATU_SL_BYTES_PER_PAGE);
         catu_enable_translate(AON_CATU_BASE, catu_sladdr, etr_buf_addr);
         tmc_etr_config(AON_ETR_BASE, etr_buf_addr, etr_buf_size);
         break;
@@ -375,6 +425,8 @@ void dbg_ss_trace_init(trace_mode_t mode,
                           REPL_IDFILTER_PASS_ALL,
                           REPL_IDFILTER_PASS_ALL);
         tmc_etf_hw_fifo_config(SYS_ETF_BASE);
+        etr_scatter_list_build(catu_sladdr, etr_buf_addr,
+                               etr_buf_size / CATU_SL_BYTES_PER_PAGE);
         catu_enable_translate(SYS_CATU_BASE, catu_sladdr, etr_buf_addr);
         tmc_etr_config(SYS_ETR_BASE, etr_buf_addr, etr_buf_size);
         break;

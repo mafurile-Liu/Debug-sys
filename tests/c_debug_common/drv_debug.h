@@ -61,6 +61,15 @@ void OPEN_DEBUG_CRG();
 /* Enable crash_dump as an AON trace source. */
 void crash_dump_start(void);
 
+/* Build a CATU scatter list (identity-mapped 4KB pages) in system memory.
+ * Must be called before enabling the CATU in translate mode; the CATU
+ * fetches this list via AXI AR reads (walker init + TLB miss/prefetch). */
+void etr_scatter_list_build(uint32_t sla, uint32_t page_base, uint32_t num_pages);
+
+/* Stop ETR capture and set RRP: subsequent RRD APB reads issue AXI AR
+ * accesses at RRP (trace read-back path, TRM 9.18.5). */
+void tmc_etr_readback_start(uint32_t base, uint32_t rrp_addr);
+
 /* Configure AON CTI inputs/outputs on a CTM channel. */
 void aon_cti_ctm_config(uint32_t channel,
                        uint32_t input_mask,
