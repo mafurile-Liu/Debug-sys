@@ -147,7 +147,8 @@ static void catu_enable_addrerr(uint32_t base, uint32_t buf_addr)
 
 /* ----------------------------------------------------------------------
  * Real circular-buffer capacity of a TMC.
- * The CB wrap/full point is RSZ*4 bytes (RSZ is read-only, hw-fixed).`n * In CB mode STS.Full sets when RWP wraps
+ * The CB wrap/full point is RSZ*4 bytes (RSZ is read-only, hw-fixed).
+ * In CB mode STS.Full sets when RWP wraps
  * this top, the FULL output drives the buffer IRQ, and Full stays set until
  * it is written 0 in Disabled state (TraceCaptEn=0). Capture keeps running
  * and overwrites old trace.
