@@ -147,8 +147,7 @@ static void catu_enable_addrerr(uint32_t base, uint32_t buf_addr)
 
 /* ----------------------------------------------------------------------
  * Real circular-buffer capacity of a TMC.
- * The CB wrap/full point is RSZ*4 bytes (RSZ is read-only, hw-fixed) - NOT
- * the buf_size the test passes in. In CB mode STS.Full sets when RWP wraps
+ * The CB wrap/full point is RSZ*4 bytes (RSZ is read-only, hw-fixed).`n * In CB mode STS.Full sets when RWP wraps
  * this top, the FULL output drives the buffer IRQ, and Full stays set until
  * it is written 0 in Disabled state (TraceCaptEn=0). Capture keeps running
  * and overwrites old trace.
@@ -167,9 +166,8 @@ static uint32_t tmc_capacity_bytes(uint32_t base)
  * No DBSIZE register (RAM size is RSZ, RO, hw-fixed). Start capture via
  * CTL.TraceCaptEn (caller responsibility).
  * ---------------------------------------------------------------------- */
-static void tmc_etr_config(uint32_t base, uint32_t buf_addr, uint32_t buf_size)
+static void tmc_etr_config(uint32_t base, uint32_t buf_addr)
 {
-    (void)buf_size;  /* css600_tmc_etr has no DBSIZE; RAM size is RSZ (RO) */
 
     /* CB wrap point = RSZ*4 bytes. When RWP wraps this top, STS.Full sets and
      * the FULL output drives the buffer IRQ - expected in CB mode, capture
@@ -213,12 +211,9 @@ static void tmc_etf_hw_fifo_config(uint32_t base)
  * as possible. SW FIFO + BUFWM=MEM_SIZE-1: full after 1 word.
  * Source: ARM SoC-600 TRM 9.16.12 BUFWM, 9.16.7 CTL.
  * ---------------------------------------------------------------------- */
-static void tmc_etr_swf1_full_int_config(uint32_t base,
-                                          uint32_t buf_addr,
-                                          uint32_t buf_size)
+static void tmc_etr_swf1_full_int_config(uint32_t base, uint32_t buf_addr)
 {
     uint32_t mem_size = R32(base + TMC_RSZ);     /* RAM size in 32-bit words (RO) */
-    (void)buf_size;
 
     W32(base + TMC_MODE,  TMC_MODE_SOFTWARE_FIFO_1);
     W32(base + TMC_DBALO, buf_addr);
@@ -260,7 +255,6 @@ void crash_dump_start(void)
 void aon_trace_init(trace_mode_t mode,
                     uint32_t     funnel_slave_port_mask,
                     uint32_t     etr_buf_addr,
-                    uint32_t     etr_buf_size,
                     uint32_t     catu_sladdr)
 {
     c_uvm_info("aon_trace_init: mode=%d funnel_mask=0x%x",
@@ -289,7 +283,7 @@ void aon_trace_init(trace_mode_t mode,
                           REPL_IDFILTER_PASS_ALL);
         tmc_etf_hw_fifo_config(AON_ETF_BASE);
         catu_enable_translate(AON_CATU_BASE, catu_sladdr, etr_buf_addr);
-        tmc_etr_config(AON_ETR_BASE, etr_buf_addr, etr_buf_size);
+        tmc_etr_config(AON_ETR_BASE, etr_buf_addr);
         break;
 
     case TRACE_MODE_ETF_CATU_BYPASS:
@@ -298,7 +292,7 @@ void aon_trace_init(trace_mode_t mode,
                           REPL_IDFILTER_PASS_ALL);
         tmc_etf_hw_fifo_config(AON_ETF_BASE);
         catu_enable_passthrough(AON_CATU_BASE, etr_buf_addr);
-        tmc_etr_config(AON_ETR_BASE, etr_buf_addr, etr_buf_size);
+        tmc_etr_config(AON_ETR_BASE, etr_buf_addr);
         break;
 
     case TRACE_MODE_ETR_SWF1_FULL_INT:
@@ -306,7 +300,7 @@ void aon_trace_init(trace_mode_t mode,
                           REPL_IDFILTER_PASS_ALL,
                           REPL_IDFILTER_PASS_ALL);
         tmc_etf_hw_fifo_config(AON_ETF_BASE);
-        tmc_etr_swf1_full_int_config(AON_ETR_BASE, etr_buf_addr, etr_buf_size);
+        tmc_etr_swf1_full_int_config(AON_ETR_BASE, etr_buf_addr);
         break;
 
     case TRACE_MODE_CATU_ADDRERR:
@@ -315,7 +309,7 @@ void aon_trace_init(trace_mode_t mode,
                           REPL_IDFILTER_PASS_ALL);
         tmc_etf_config(AON_ETF_BASE);
         catu_enable_addrerr(AON_CATU_BASE, etr_buf_addr);
-        tmc_etr_config(AON_ETR_BASE, etr_buf_addr, etr_buf_size);
+        tmc_etr_config(AON_ETR_BASE, etr_buf_addr);
         W32(AON_ETR_BASE + TMC_CTL, TMC_CTL_TRACECAPTEN); /* start -> ADDRERR */
         break;
 
@@ -333,7 +327,6 @@ void aon_trace_init(trace_mode_t mode,
 void dbg_ss_trace_init(trace_mode_t mode,
                        uint32_t     funnel_slave_port_mask,
                        uint32_t     etr_buf_addr,
-                       uint32_t     etr_buf_size,
                        uint32_t     catu_sladdr)
 {
     c_uvm_info("dbg_ss_trace_init: mode=%d funnel_mask=0x%x",
@@ -366,7 +359,7 @@ void dbg_ss_trace_init(trace_mode_t mode,
                           REPL_IDFILTER_PASS_ALL);
         tmc_etf_hw_fifo_config(SYS_ETF_BASE);
         catu_enable_translate(SYS_CATU_BASE, catu_sladdr, etr_buf_addr);
-        tmc_etr_config(SYS_ETR_BASE, etr_buf_addr, etr_buf_size);
+        tmc_etr_config(SYS_ETR_BASE, etr_buf_addr);
         break;
 
     case TRACE_MODE_ETF_CATU_BYPASS:
@@ -375,7 +368,7 @@ void dbg_ss_trace_init(trace_mode_t mode,
                           REPL_IDFILTER_PASS_ALL);
         tmc_etf_hw_fifo_config(SYS_ETF_BASE);
         catu_enable_passthrough(SYS_CATU_BASE, etr_buf_addr);
-        tmc_etr_config(SYS_ETR_BASE, etr_buf_addr, etr_buf_size);
+        tmc_etr_config(SYS_ETR_BASE, etr_buf_addr);
         break;
 
     case TRACE_MODE_ETR_SWF1_FULL_INT:
@@ -383,7 +376,7 @@ void dbg_ss_trace_init(trace_mode_t mode,
                           REPL_IDFILTER_PASS_ALL,
                           REPL_IDFILTER_PASS_ALL);
         tmc_etf_hw_fifo_config(SYS_ETF_BASE);
-        tmc_etr_swf1_full_int_config(SYS_ETR_BASE, etr_buf_addr, etr_buf_size);
+        tmc_etr_swf1_full_int_config(SYS_ETR_BASE, etr_buf_addr);
         break;
 
     case TRACE_MODE_CATU_ADDRERR:
@@ -392,7 +385,7 @@ void dbg_ss_trace_init(trace_mode_t mode,
                           REPL_IDFILTER_PASS_ALL);
         tmc_etf_config(SYS_ETF_BASE);
         catu_enable_addrerr(SYS_CATU_BASE, etr_buf_addr);
-        tmc_etr_config(SYS_ETR_BASE, etr_buf_addr, etr_buf_size);
+        tmc_etr_config(SYS_ETR_BASE, etr_buf_addr);
         W32(SYS_ETR_BASE + TMC_CTL, TMC_CTL_TRACECAPTEN); /* start -> ADDRERR */
         break;
 

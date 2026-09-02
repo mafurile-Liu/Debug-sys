@@ -7,7 +7,6 @@ CPU_TEST_START
     aon_trace_init(TRACE_MODE_ETF_ATB_ONLY,
                    1u << HIFI_TRACE_FUNNEL_SLAVE_PORT,
                    AON_SRAM_BASE_ADDR,
-                   0u,
                    CATU_SLADDR_DEFAULT);
 
     /* Enable HiFi TRAX output on ATB. */

@@ -41,7 +41,6 @@
 void aon_trace_init(trace_mode_t mode,
                     uint32_t     funnel_slave_port_mask,
                     uint32_t     etr_buf_addr,
-                    uint32_t     etr_buf_size,
                     uint32_t     catu_sladdr);
 
 /* dbg_ss (SYS) trace tree startup.
@@ -49,7 +48,6 @@ void aon_trace_init(trace_mode_t mode,
 void dbg_ss_trace_init(trace_mode_t mode,
                        uint32_t     funnel_slave_port_mask,
                        uint32_t     etr_buf_addr,
-                       uint32_t     etr_buf_size,
                        uint32_t     catu_sladdr);
 
 void OPEN_DEBUG_CRG();
