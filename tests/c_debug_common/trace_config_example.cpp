@@ -17,13 +17,15 @@ CPU_TEST_START
      *   -> replicator(both) -> ETF HW FIFO + ETR -> CATU(pass-through) */
     aon_trace_init(TRACE_MODE_ETF_CATU_BYPASS, /* mode */
                    0x07U,                  /* funnel slave ports 0,1,2 */
-                   AON_SRAM_BASE_ADDR,     /* ETR buffer addr */
+                   AON_SRAM_BASE_ADDR,     /* ETR buffer addr (DBA) */
+                   0x00010000U,            /* buffer size -> RSZ (64KB) */
                    CATU_SLADDR_DEFAULT);   /* CATU scatter list (unused in bypass) */
 
     /* dbg_ss trace tree: STM -> funnel (port 0) -> ETR -> CATU(translate) */
     dbg_ss_trace_init(TRACE_MODE_ETF_CATU_TRANSLATE,  /* mode */
                       0x01U,                 /* funnel slave port 0 */
-                      AON_SRAM_BASE_ADDR,    /* ETR buffer addr */
+                      AON_SRAM_BASE_ADDR,    /* ETR buffer addr (DBA) */
+                      0x00010000U,           /* buffer size -> RSZ (64KB) */
                       CATU_SLADDR_DEFAULT);  /* CATU scatter list @ AON SRAM + 0x10000 */
 
     /* Interrupt / error-path tests:
@@ -33,6 +35,6 @@ CPU_TEST_START
      *   dbg_ss_trace_init(TRACE_MODE_CATU_ADDRERR, 0x01U, AON_SRAM_BASE_ADDR, 0x10000U, 0);
      */
 
-    c_uvm_info("trace config done");
+    c_uvm_info("%s", "trace config done");
     C_PASS();
 CPU_TEST_END
