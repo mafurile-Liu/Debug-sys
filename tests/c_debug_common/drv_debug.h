@@ -37,10 +37,15 @@
  * Trace sources (per AON_SS架构.png): M52 ITM, M52 ETM, HiFi5s TRAX/ITM
  * funnel_slave_port_mask: bit mask of FUNNEL slave ports to enable.
  * catu_sladdr: CATU scatter-list address (used in TRACE_MODE_ETF_CATU_TRANSLATE).
- *   Use CATU_SLADDR_DEFAULT (AON SRAM base + 0x10000) or override. 4KB-aligned. */
+ *   Use CATU_SLADDR_DEFAULT (AON SRAM base + 0x10000) or override. 4KB-aligned.
+ * etr_buf_size: ETR trace-buffer size in bytes - programmed into RSZ (RW for
+ *   the css600_tmc_etr variant, TRM 9.18.1). Must be a multiple of the AXI
+ *   data width (16B @ 128-bit), >= 512B for SW FIFO modes, >= 16B (1 AXI
+ *   dataword) for CB mode. Defines the CB wrap point [DBA, DBA+RSZ*4). */
 void aon_trace_init(trace_mode_t mode,
                     uint32_t     funnel_slave_port_mask,
                     uint32_t     etr_buf_addr,
+                    uint32_t     etr_buf_size,
                     uint32_t     catu_sladdr);
 
 /* dbg_ss (SYS) trace tree startup.
@@ -48,6 +53,7 @@ void aon_trace_init(trace_mode_t mode,
 void dbg_ss_trace_init(trace_mode_t mode,
                        uint32_t     funnel_slave_port_mask,
                        uint32_t     etr_buf_addr,
+                       uint32_t     etr_buf_size,
                        uint32_t     catu_sladdr);
 
 void OPEN_DEBUG_CRG();

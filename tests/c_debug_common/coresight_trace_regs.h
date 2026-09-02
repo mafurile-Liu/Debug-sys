@@ -109,7 +109,9 @@
 #define TMC_AXICTL             0x110U  /* ARM SoC-600 css600_tmc_etr: AXI Control; was AXICTRL */
 #define TMC_DBALO              0x118U  /* ARM SoC-600 css600_tmc_etr: Data Buffer Address Low */
 #define TMC_DBAHI              0x11cU  /* ARM SoC-600 css600_tmc_etr: Data Buffer Address High */
-/* TMC_DBSIZE removed: css600_tmc_etr has no DBSIZE register; RAM size is RSZ (RO, hw-fixed). */
+/* No DBSIZE register: the ETR buffer size is SOFTWARE-programmed via RSZ
+ * (0x004, RW per TRM 9.18.1 - buffer lives in system memory at DBA). Note:
+ * the ETB variant (TRM 9.16) has RSZ = RO = MEM_SIZE (internal RAM, hw-fixed). */
 
 /* Additional css600_tmc_etr registers for a complete ETR setup (TRM 4.8.5):
  *   RWP/RWP_HI = RAM write pointer; for ETR, RWP = DBA (buffer base addr).

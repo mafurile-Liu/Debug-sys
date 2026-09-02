@@ -29,8 +29,8 @@ CPU_TEST_START
     /* Interrupt / error-path tests:
      *   TRACE_MODE_ETR_SWF1_FULL_INT - ETR SWF1 full IRQ (BUFWM=max, fires after 1 word)
      *   TRACE_MODE_CATU_ADDRERR  - CATU ADDRERR IRQ (INADDR deliberately wrong)
-     *   aon_trace_init(TRACE_MODE_ETR_SWF1_FULL_INT, 0x07U, 0, 0);
-     *   dbg_ss_trace_init(TRACE_MODE_CATU_ADDRERR, 0x01U, AON_SRAM_BASE_ADDR, 0);
+     *   aon_trace_init(TRACE_MODE_ETR_SWF1_FULL_INT, 0x07U, AON_SRAM_BASE_ADDR, 0x200U, 0);
+     *   dbg_ss_trace_init(TRACE_MODE_CATU_ADDRERR, 0x01U, AON_SRAM_BASE_ADDR, 0x10000U, 0);
      */
 
     c_uvm_info("trace config done");
