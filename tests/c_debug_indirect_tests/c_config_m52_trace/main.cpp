@@ -53,6 +53,7 @@
 #define M52_ITM_TCR  (M52_ITM_BASE + 0xE80U)
 #define M52_ITM_TCR_VAL  ((1U << 16) | (1U << 3) | 1U)  /* ATBID=1, SYNCENA, ITMEn */
 #define M52_ETM_BASE 0xE0041000U
+#define M52_ETM_LAR  (M52_ETM_BASE + 0xFB0U)
 #define M52_ETM_TRCPRGCTLR  (M52_ETM_BASE + 0x004U)
 #define M52_ETM_TRCTRACEIDR (M52_ETM_BASE + 0x200U)
 #define ETM_LAR_KEY  0xC5ACCE55U
@@ -135,6 +136,6 @@ CPU_TEST_START
         c_uvm_info("etm prgctlr = 0x%08x (expect 0x1)", pgctlr);
     }
 
-    c_uvm_info("m52 itm/etm trace output enabled");
+    c_uvm_info("%s", "m52 itm/etm trace output enabled");
     C_PASS();
 CPU_TEST_END
