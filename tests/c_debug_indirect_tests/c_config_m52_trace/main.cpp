@@ -8,11 +8,7 @@
  * Address scheme (dbg_address_mapping (1).xlsx, m2 ahb_ap_m52, 8KB block):
  *   external view 0x4A00_4000 : AP regs page0
  *       CSW @ +0xD00, TAR @ +0xD04, DRW @ +0xD0C, IDR @ +0xDFC
- *   internal view 0x4A00_5000 : AP regs page1
- *       DAR0-255 @ +0x000-0x3FC (direct window on TAR's 1KB base),
- *       mirrored CSW/TAR/DRW @ +0xD00/+0xD04/+0xD0C
- *   Convention: AP config via external view, M52 data access via the
- *   internal view DAR/DRW window.
+ *   All AHB-AP accesses (CSW/TAR/DRW) go through the external view
  *
  * M52 PPB map (M52 TRM 8.3, Table 8-3/8-4):
  *   ITM 0xE000_0000 (TER 0xE00, TCR 0xE80; no LAR - not implemented)
@@ -29,12 +25,10 @@
 
 /* ---- AHB-AP (m2 ahb_ap_m52) windows ---- */
 #define AHBAP_EXT_BASE  0x4A004000U   /* external view: AP regs page0 */
-#define AHBAP_INT_BASE  0x4A005000U   /* internal view: AP regs page1 (DAR0-255) */
 #define AHBAP_CSW       (AHBAP_EXT_BASE + 0xD00U)
 #define AHBAP_TAR       (AHBAP_EXT_BASE + 0xD04U)
 #define AHBAP_IDR       (AHBAP_EXT_BASE + 0xDFCU)
-#define AHBAP_INT_DRW   (AHBAP_INT_BASE  + 0xD0CU)   /* data via internal view */
-#define AHBAP_INT_DAR0  (AHBAP_INT_BASE + 0x000U)
+#define AHBAP_DRW       (AHBAP_EXT_BASE + 0xD0CU)   /* data via external view (same page as CSW/TAR) */
 
 /* CSW fields (SoC-600 TRM 9.1.5 Table 9-6) */
 #define AHBAP_CSW_HNONSEC  (1U << 30)
@@ -58,17 +52,17 @@
 #define M52_ETM_TRCTRACEIDR (M52_ETM_BASE + 0x200U)
 #define ETM_LAR_KEY  0xC5ACCE55U
 
-/* one M52 32-bit access = TAR write + DRW data access (internal view) */
+/* one M52 32-bit access = TAR write + DRW data access (external view) */
 static void m52_write(uint32_t addr, uint32_t data)
 {
     W32(AHBAP_TAR, addr);
-    W32(AHBAP_INT_DRW, data);
+    W32(AHBAP_DRW, data);
 }
 
 static uint32_t m52_read(uint32_t addr)
 {
     W32(AHBAP_TAR, addr);
-    return R32(AHBAP_INT_DRW);
+    return R32(AHBAP_DRW);
 }
 
 CPU_TEST_START
@@ -96,7 +90,7 @@ CPU_TEST_START
         c_uvm_info("ahbap IDR = 0x%08x (TRM: 0x54770008)", idr);
     }
 
-    /* ---- 2. M52 register access via internal view (TAR + DRW) ---- */
+    /* ---- 2. M52 register access via external view (TAR + DRW) ---- */
     /* CPUID: expect 0x630FD244 (Arm China Cortex-M52, verified in sim) */
     {
         uint32_t cpuid = m52_read(M52_CPUID);
