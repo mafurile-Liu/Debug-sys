@@ -38,41 +38,41 @@ CPU_TEST_START
 
     /* 1. CoreSight ID check: CIDR0 must be 0x0D for a CoreSight component */
     {
-        uint32_t cidr0 = R32(TSGEN_BASE + CS_CIDR0);
-        uint32_t cidr1 = R32(TSGEN_BASE + CS_CIDR0 + 0x4U);
-        uint32_t cidr2 = R32(TSGEN_BASE + CS_CIDR0 + 0x8U);
-        uint32_t cidr3 = R32(TSGEN_BASE + CS_CIDR0 + 0xCU);
+        uint32_t cidr0 = R32((uintptr_t)TSGEN_BASE + CS_CIDR0);
+        uint32_t cidr1 = R32((uintptr_t)TSGEN_BASE + CS_CIDR0 + 0x4U);
+        uint32_t cidr2 = R32((uintptr_t)TSGEN_BASE + CS_CIDR0 + 0x8U);
+        uint32_t cidr3 = R32((uintptr_t)TSGEN_BASE + CS_CIDR0 + 0xCU);
         c_uvm_info("tsgen CIDR: 0=%02x 1=%02x 2=%02x 3=%02x",
                    cidr0, cidr1, cidr2, cidr3);
         if (cidr0 == 0x0DU) {
-            c_uvm_info("tsgen: CoreSight component confirmed");
+            c_uvm_info("%s", "tsgen: CoreSight component confirmed");
         } else {
-            c_uvm_error("tsgen: CIDR0 != 0x0D, not a CoreSight component");
+            c_uvm_error("%s", "tsgen: CIDR0 != 0x0D, not a CoreSight component");
         }
     }
 
     /* 2. DEVARCH / DEVTYPE */
     {
-        uint32_t devarch = R32(TSGEN_BASE + 0xFBCU);
-        uint32_t devtype = R32(TSGEN_BASE + CS_DEVTYPE);
+        uint32_t devarch = R32((uintptr_t)TSGEN_BASE + 0xFBCU);
+        uint32_t devtype = R32((uintptr_t)TSGEN_BASE + CS_DEVTYPE);
         c_uvm_info("tsgen DEVARCH=0x%08x DEVTYPE=0x%08x", devarch, devtype);
     }
 
     /* 3. PIDR for designer/part info */
     {
-        uint32_t pidr0 = R32(TSGEN_BASE + CS_PIDR0);
-        uint32_t pidr4 = R32(TSGEN_BASE + CS_PIDR4);
+        uint32_t pidr0 = R32((uintptr_t)TSGEN_BASE + CS_PIDR0);
+        uint32_t pidr4 = R32((uintptr_t)TSGEN_BASE + CS_PIDR4);
         c_uvm_info("tsgen PIDR0=0x%02x PIDR4=0x%02x", pidr0, pidr4);
     }
 
     /* 4. Scan the first 256 bytes for non-zero registers (discover map) */
     for (uint32_t off = TSGEN_SCAN_START; off < TSGEN_SCAN_END; off += 4U) {
-        uint32_t val = R32(TSGEN_BASE + off);
+        uint32_t val = R32((uintptr_t)TSGEN_BASE + off);
         if (val != 0U && val != 0xFFFFFFFFU) {
             c_uvm_info("tsgen reg[0x%03x] = 0x%08x", off, val);
         }
     }
 
-    c_uvm_info("tsgen smoke done");
+    c_uvm_info("%s", "tsgen smoke done");
     C_PASS();
 CPU_TEST_END
