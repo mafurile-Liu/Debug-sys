@@ -6,9 +6,9 @@
  * the M52 ITM + ETM trace output.
  *
  * Address scheme (dbg_address_mapping (1).xlsx, m2 ahb_ap_m52, 8KB block):
- *   external view 0x4A00_4000 : AP regs page0
+ *   internal view 0x4A00_5000 : AP regs page1
  *       CSW @ +0xD00, TAR @ +0xD04, DRW @ +0xD0C, IDR @ +0xDFC
- *   All AHB-AP accesses (CSW/TAR/DRW) go through the external view
+ *   All AHB-AP accesses (CSW/TAR/DRW) go through the internal view
  *
  * M52 PPB map (M52 TRM 8.3, Table 8-3/8-4):
  *   ITM 0xE000_0000 (TER 0xE00, TCR 0xE80; no LAR - not implemented)
@@ -24,11 +24,11 @@
 #include "coresight_trace_regs.h"   /* AON_SRAM_BASE_ADDR, CATU_SLADDR_DEFAULT */
 
 /* ---- AHB-AP (m2 ahb_ap_m52) windows ---- */
-#define AHBAP_EXT_BASE  0x4A004000U   /* external view: AP regs page0 */
-#define AHBAP_CSW       (AHBAP_EXT_BASE + 0xD00U)
-#define AHBAP_TAR       (AHBAP_EXT_BASE + 0xD04U)
-#define AHBAP_IDR       (AHBAP_EXT_BASE + 0xDFCU)
-#define AHBAP_DRW       (AHBAP_EXT_BASE + 0xD0CU)   /* data via external view (same page as CSW/TAR) */
+#define AHBAP_INT_BASE  0x4A005000U   /* internal view: AP regs page1 */
+#define AHBAP_CSW       (AHBAP_INT_BASE + 0xD00U)
+#define AHBAP_TAR       (AHBAP_INT_BASE + 0xD04U)
+#define AHBAP_IDR       (AHBAP_INT_BASE + 0xDFCU)
+#define AHBAP_DRW       (AHBAP_INT_BASE + 0xD0CU)   /* data via internal view (same page as CSW/TAR) */
 
 /* CSW fields (SoC-600 TRM 9.1.5 Table 9-6) */
 #define AHBAP_CSW_HNONSEC  (1U << 30)
