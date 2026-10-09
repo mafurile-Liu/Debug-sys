@@ -141,6 +141,9 @@ CPU_TEST_START
         uint32_t lo0 = R32((uintptr_t)TSGEN_RD_BASE + TSGEN_CNTCVLREAD);
         uint32_t hi0 = R32((uintptr_t)TSGEN_RD_BASE + TSGEN_CNTCVUREAD);
         volatile uint32_t spin;
+        uint64_t before;
+        uint64_t after;
+        bool wrapped;
 
         for (spin = 0U; spin < 64U; ++spin) {
             /* Give the counter some cycles to advance. */
@@ -149,8 +152,17 @@ CPU_TEST_START
         uint32_t lo1 = R32((uintptr_t)TSGEN_RD_BASE + TSGEN_CNTCVLREAD);
         uint32_t hi1 = R32((uintptr_t)TSGEN_RD_BASE + TSGEN_CNTCVUREAD);
 
+        before = ((uint64_t)hi0 << 32U) | lo0;
+        after = ((uint64_t)hi1 << 32U) | lo1;
+        wrapped = (before == UINT64_MAX) && (after == 0U);
+
         c_uvm_info("tsgen counter: 0x%08x_%08x -> 0x%08x_%08x",
                    hi0, lo0, hi1, lo1);
+
+        if ((after <= before) && !wrapped) {
+            c_uvm_error("tsgen: RO counter did not increment (0x%08x_%08x -> 0x%08x_%08x)",
+                        hi0, lo0, hi1, lo1);
+        }
     }
 
     /* 4. CoreSight ID check through the read-only interface. */
