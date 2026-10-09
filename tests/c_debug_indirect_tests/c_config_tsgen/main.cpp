@@ -7,9 +7,10 @@
  *   - 0x0206_2000: APB5 Completer 0, control/config interface (RW)
  *   - 0x0206_3000: APB5 Completer 1, read-only counter/ID interface (RO)
  *
- * This case configures/enables the counter through the RW port and reads
- * the live counter through the RO port. CoreSight ID registers are also
- * read from the RO port.
+ * This case reads back config-port registers before/after configuration,
+ * configures/enables the counter through the RW port, and reads the live
+ * counter through the RO port. CoreSight ID registers are also read from
+ * the RO port.
  */
 
 #include <stdint.h>
@@ -25,6 +26,7 @@
 #define TSGEN_CNTSR       0x004U
 #define TSGEN_CNTCVL      0x008U
 #define TSGEN_CNTCVU      0x00CU
+#define TSGEN_CNTFID0     0x020U
 #define TSGEN_CNTCVLREAD  0x000U
 #define TSGEN_CNTCVUREAD  0x004U
 
@@ -45,6 +47,25 @@ CPU_TEST_START
     /* 1. Configure the counter through the RW/config APB interface. */
     {
         uint32_t ctrl;
+        uint32_t pre_cntcr;
+        uint32_t pre_cntsr;
+        uint32_t pre_lo;
+        uint32_t pre_hi;
+        uint32_t pre_fid;
+        uint32_t post_lo;
+        uint32_t post_hi;
+        uint32_t post_fid;
+
+        /* Issue several reads on the RW/config port before changing state. */
+        pre_cntcr = R32((uintptr_t)TSGEN_CFG_BASE + TSGEN_CNTCR);
+        pre_cntsr = R32((uintptr_t)TSGEN_CFG_BASE + TSGEN_CNTSR);
+        pre_lo = R32((uintptr_t)TSGEN_CFG_BASE + TSGEN_CNTCVL);
+        pre_hi = R32((uintptr_t)TSGEN_CFG_BASE + TSGEN_CNTCVU);
+        pre_fid = R32((uintptr_t)TSGEN_CFG_BASE + TSGEN_CNTFID0);
+        c_uvm_info("tsgen cfg pre-read: CNTCR=0x%08x CNTSR=0x%08x",
+                   pre_cntcr, pre_cntsr);
+        c_uvm_info("tsgen cfg pre-read: CNTCV=0x%08x_%08x CNTFID0=0x%08x",
+                   pre_hi, pre_lo, pre_fid);
 
         /* Stop the counter before changing CNTCVL/CNTCVU. */
         W32((uintptr_t)TSGEN_CFG_BASE + TSGEN_CNTCR, 0U);
@@ -59,9 +80,16 @@ CPU_TEST_START
         /* Enable counting. HDBG remains 0. */
         W32((uintptr_t)TSGEN_CFG_BASE + TSGEN_CNTCR, TSGEN_CNTCR_EN);
 
+        /* Read back several config-port registers after programming. */
         ctrl = R32((uintptr_t)TSGEN_CFG_BASE + TSGEN_CNTCR);
+        post_lo = R32((uintptr_t)TSGEN_CFG_BASE + TSGEN_CNTCVL);
+        post_hi = R32((uintptr_t)TSGEN_CFG_BASE + TSGEN_CNTCVU);
+        post_fid = R32((uintptr_t)TSGEN_CFG_BASE + TSGEN_CNTFID0);
+
         c_uvm_info("tsgen CNTCR=0x%08x CNTSR=0x%08x",
                    ctrl, R32((uintptr_t)TSGEN_CFG_BASE + TSGEN_CNTSR));
+        c_uvm_info("tsgen cfg post-read: CNTCV=0x%08x_%08x CNTFID0=0x%08x",
+                   post_hi, post_lo, post_fid);
         if ((ctrl & TSGEN_CNTCR_EN) == 0U) {
             c_uvm_error("%s", "tsgen: CNTCR.EN did not read back as enabled");
         }
