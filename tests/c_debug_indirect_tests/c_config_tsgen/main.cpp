@@ -8,9 +8,9 @@
  *   - 0x0206_3000: APB5 Completer 1, read-only counter/ID interface (RO)
  *
  * This case reads back config-port registers before/after configuration,
- * configures/enables the counter through the RW port, and reads the live
- * counter through the RO port. CoreSight ID registers are also read from
- * the RO port.
+ * configures/enables the counter through the RW port, checks that writes to
+ * the dedicated RO port are ignored, and reads the live counter through the
+ * RO port. CoreSight ID registers are also read from the RO port.
  */
 
 #include <stdint.h>
@@ -31,6 +31,10 @@
 #define TSGEN_CNTCVUREAD  0x004U
 
 #define TSGEN_CNTCR_EN    (1U << 0)
+
+/* Deliberately invalid values used to probe writes on the RO port. */
+#define TSGEN_RO_PROBE_LO 0xDEADBEEFU
+#define TSGEN_RO_PROBE_HI 0xCAFEBABEU
 
 /* CoreSight ID register offsets (standard, all CoreSight components) */
 #define CS_DEVID        0xFC8U
@@ -95,7 +99,44 @@ CPU_TEST_START
         }
     }
 
-    /* 2. Read the live counter through the dedicated read-only interface. */
+    /*
+     * 2. Check that the dedicated read-only port ignores writes.
+     * Stop the counter first so the reference value cannot advance while the
+     * invalid RO-port writes are issued. CNTCVL/CNTCVU on the config port are
+     * the real counter state, so they are used as the reference after the
+     * write attempts.
+     */
+    {
+        uint32_t pre_lo;
+        uint32_t pre_hi;
+        uint32_t post_lo;
+        uint32_t post_hi;
+
+        W32((uintptr_t)TSGEN_CFG_BASE + TSGEN_CNTCR, 0U);
+        pre_lo = R32((uintptr_t)TSGEN_CFG_BASE + TSGEN_CNTCVL);
+        pre_hi = R32((uintptr_t)TSGEN_CFG_BASE + TSGEN_CNTCVU);
+
+        /*
+         * The RO interface exposes CNTCVLREAD/CNTCVUREAD at 0x000/0x004.
+         * These writes must not modify the TSGen counter state.
+         */
+        W32((uintptr_t)TSGEN_RD_BASE + TSGEN_CNTCVLREAD, TSGEN_RO_PROBE_LO);
+        W32((uintptr_t)TSGEN_RD_BASE + TSGEN_CNTCVUREAD, TSGEN_RO_PROBE_HI);
+
+        post_lo = R32((uintptr_t)TSGEN_CFG_BASE + TSGEN_CNTCVL);
+        post_hi = R32((uintptr_t)TSGEN_CFG_BASE + TSGEN_CNTCVU);
+
+        c_uvm_info("tsgen RO write check: 0x%08x_%08x -> 0x%08x_%08x",
+                   pre_hi, pre_lo, post_hi, post_lo);
+        if ((pre_lo != post_lo) || (pre_hi != post_hi)) {
+            c_uvm_error("%s", "tsgen: write to dedicated RO port changed counter state");
+        }
+
+        /* Restore the enabled state for the live-counter check below. */
+        W32((uintptr_t)TSGEN_CFG_BASE + TSGEN_CNTCR, TSGEN_CNTCR_EN);
+    }
+
+    /* 3. Read the live counter through the dedicated read-only interface. */
     {
         uint32_t lo0 = R32((uintptr_t)TSGEN_RD_BASE + TSGEN_CNTCVLREAD);
         uint32_t hi0 = R32((uintptr_t)TSGEN_RD_BASE + TSGEN_CNTCVUREAD);
@@ -112,7 +153,7 @@ CPU_TEST_START
                    hi0, lo0, hi1, lo1);
     }
 
-    /* 3. CoreSight ID check through the read-only interface. */
+    /* 4. CoreSight ID check through the read-only interface. */
     {
         uint32_t cidr0 = R32((uintptr_t)TSGEN_RD_BASE + CS_CIDR0);
         uint32_t cidr1 = R32((uintptr_t)TSGEN_RD_BASE + CS_CIDR0 + 0x4U);
