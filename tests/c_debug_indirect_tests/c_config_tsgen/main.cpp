@@ -3,22 +3,32 @@
  *
  * Timestamp Generator (css600_tsgen) smoke test.
  *
- * The TSGen generates periodic EVENT_P for the CTM (trace sync).
- * SoC-600 TRM does not have a dedicated TSGen programming section -
- * it is a simple component. This case:
- *   1. Reads CoreSight ID registers (CIDR0-3, DEVARCH, DEVTYPE) to
- *      verify the component is present and accessible.
- *   2. Reads and logs any control/status registers in the first 4KB
- *      page (0x00-0xFF) to discover the register map.
+ * The TSGen has two AON access ports:
+ *   - 0x0206_2000: APB5 Completer 0, control/config interface (RW)
+ *   - 0x0206_3000: APB5 Completer 1, read-only counter/ID interface (RO)
  *
- * Address: 0x0205_9000 (AON bus view, mirrors 0xA205_9000 on APB config bus)
+ * This case configures/enables the counter through the RW port and reads
+ * the live counter through the RO port. CoreSight ID registers are also
+ * read from the RO port.
  */
 
 #include <stdint.h>
 #include "drv_common.h"
 #include "drv_debug.h"
 
-#define TSGEN_BASE      0x02059000U
+/* AON system-bus view from the design address map. */
+#define TSGEN_CFG_BASE  0x02062000U
+#define TSGEN_RD_BASE   0x02063000U
+
+/* SoC-600 TRM 9.21/9.22: css600_tsgen APB5 Completer 0/1. */
+#define TSGEN_CNTCR       0x000U
+#define TSGEN_CNTSR       0x004U
+#define TSGEN_CNTCVL      0x008U
+#define TSGEN_CNTCVU      0x00CU
+#define TSGEN_CNTCVLREAD  0x000U
+#define TSGEN_CNTCVUREAD  0x004U
+
+#define TSGEN_CNTCR_EN    (1U << 0)
 
 /* CoreSight ID register offsets (standard, all CoreSight components) */
 #define CS_DEVID        0xFC8U
@@ -27,49 +37,69 @@
 #define CS_PIDR0        0xFE0U
 #define CS_CIDR0        0xFF0U
 
-/* scan range for possible control registers */
-#define TSGEN_SCAN_START 0x000U
-#define TSGEN_SCAN_END   0x100U
-
 CPU_TEST_START
     OPEN_DEBUG_CRG();
 
     // --------------- clks cfg finish ---------------- //
 
-    /* 1. CoreSight ID check: CIDR0 must be 0x0D for a CoreSight component */
+    /* 1. Configure the counter through the RW/config APB interface. */
     {
-        uint32_t cidr0 = R32((uintptr_t)TSGEN_BASE + CS_CIDR0);
-        uint32_t cidr1 = R32((uintptr_t)TSGEN_BASE + CS_CIDR0 + 0x4U);
-        uint32_t cidr2 = R32((uintptr_t)TSGEN_BASE + CS_CIDR0 + 0x8U);
-        uint32_t cidr3 = R32((uintptr_t)TSGEN_BASE + CS_CIDR0 + 0xCU);
+        uint32_t ctrl;
+
+        /* Stop the counter before changing CNTCVL/CNTCVU. */
+        W32((uintptr_t)TSGEN_CFG_BASE + TSGEN_CNTCR, 0U);
+
+        /*
+         * Seed the 64-bit counter. TRM requires CNTCVL first, then CNTCVU;
+         * the timestamp updates on the CNTCVU write.
+         */
+        W32((uintptr_t)TSGEN_CFG_BASE + TSGEN_CNTCVL, 0x10000000U);
+        W32((uintptr_t)TSGEN_CFG_BASE + TSGEN_CNTCVU, 0U);
+
+        /* Enable counting. HDBG remains 0. */
+        W32((uintptr_t)TSGEN_CFG_BASE + TSGEN_CNTCR, TSGEN_CNTCR_EN);
+
+        ctrl = R32((uintptr_t)TSGEN_CFG_BASE + TSGEN_CNTCR);
+        c_uvm_info("tsgen CNTCR=0x%08x CNTSR=0x%08x",
+                   ctrl, R32((uintptr_t)TSGEN_CFG_BASE + TSGEN_CNTSR));
+        if ((ctrl & TSGEN_CNTCR_EN) == 0U) {
+            c_uvm_error("%s", "tsgen: CNTCR.EN did not read back as enabled");
+        }
+    }
+
+    /* 2. Read the live counter through the dedicated read-only interface. */
+    {
+        uint32_t lo0 = R32((uintptr_t)TSGEN_RD_BASE + TSGEN_CNTCVLREAD);
+        uint32_t hi0 = R32((uintptr_t)TSGEN_RD_BASE + TSGEN_CNTCVUREAD);
+        volatile uint32_t spin;
+
+        for (spin = 0U; spin < 64U; ++spin) {
+            /* Give the counter some cycles to advance. */
+        }
+
+        uint32_t lo1 = R32((uintptr_t)TSGEN_RD_BASE + TSGEN_CNTCVLREAD);
+        uint32_t hi1 = R32((uintptr_t)TSGEN_RD_BASE + TSGEN_CNTCVUREAD);
+
+        c_uvm_info("tsgen counter: 0x%08x_%08x -> 0x%08x_%08x",
+                   hi0, lo0, hi1, lo1);
+    }
+
+    /* 3. CoreSight ID check through the read-only interface. */
+    {
+        uint32_t cidr0 = R32((uintptr_t)TSGEN_RD_BASE + CS_CIDR0);
+        uint32_t cidr1 = R32((uintptr_t)TSGEN_RD_BASE + CS_CIDR0 + 0x4U);
+        uint32_t cidr2 = R32((uintptr_t)TSGEN_RD_BASE + CS_CIDR0 + 0x8U);
+        uint32_t cidr3 = R32((uintptr_t)TSGEN_RD_BASE + CS_CIDR0 + 0xCU);
+        uint32_t pidr0 = R32((uintptr_t)TSGEN_RD_BASE + CS_PIDR0);
+        uint32_t pidr4 = R32((uintptr_t)TSGEN_RD_BASE + CS_PIDR4);
+
+        c_uvm_info("tsgen PIDR0=0x%02x PIDR4=0x%02x", pidr0, pidr4);
         c_uvm_info("tsgen CIDR: 0=%02x 1=%02x 2=%02x 3=%02x",
                    cidr0, cidr1, cidr2, cidr3);
         if (cidr0 == 0x0DU) {
             c_uvm_info("%s", "tsgen: CoreSight component confirmed");
         } else {
             c_uvm_error("%s", "tsgen: CIDR0 != 0x0D, not a CoreSight component");
-        }
-    }
-
-    /* 2. DEVARCH / DEVTYPE */
-    {
-        uint32_t devarch = R32((uintptr_t)TSGEN_BASE + 0xFBCU);
-        uint32_t devtype = R32((uintptr_t)TSGEN_BASE + CS_DEVTYPE);
-        c_uvm_info("tsgen DEVARCH=0x%08x DEVTYPE=0x%08x", devarch, devtype);
-    }
-
-    /* 3. PIDR for designer/part info */
-    {
-        uint32_t pidr0 = R32((uintptr_t)TSGEN_BASE + CS_PIDR0);
-        uint32_t pidr4 = R32((uintptr_t)TSGEN_BASE + CS_PIDR4);
-        c_uvm_info("tsgen PIDR0=0x%02x PIDR4=0x%02x", pidr0, pidr4);
-    }
-
-    /* 4. Scan the first 256 bytes for non-zero registers (discover map) */
-    for (uint32_t off = TSGEN_SCAN_START; off < TSGEN_SCAN_END; off += 4U) {
-        uint32_t val = R32((uintptr_t)TSGEN_BASE + off);
-        if (val != 0U && val != 0xFFFFFFFFU) {
-            c_uvm_info("tsgen reg[0x%03x] = 0x%08x", off, val);
         }
     }
 
