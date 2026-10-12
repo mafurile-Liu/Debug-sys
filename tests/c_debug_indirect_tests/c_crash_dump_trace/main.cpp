@@ -10,34 +10,33 @@
  *   4. trigger crash_dump and wait for dump done
  *   5. search the AON SRAM trace buffer for the expected dump data
  *
- * IMPORTANT:
- *   The crash_dump APB register offsets/bits below are RESERVED placeholders.
- *   They must be replaced with the design-provided register map before this
- *   case is used as a pass/fail regression on RTL.
+ * Crash_dump register offsets/bits are from the design-provided register map:
+ *   CTRL 0x000, SW_TRG 0x004, STATUS 0x008, ATB_ID 0x00C,
+ *   TAR_ADDR0-7 0x010-0x02C, SIZE0-7 0x030-0x04C.
  */
 
 #include <stdint.h>
 #include "drv_common.h"
 #include "drv_debug.h"
 
-/* ------------------------------------------------------------------ */
-/* RESERVED crash_dump register map: TODO(design) replace these.      */
-/* Base is confirmed as 0x4A20_7000; offsets/bits are not confirmed.   */
-/* ------------------------------------------------------------------ */
-#define CD_CTRL                   0x000U
-#define CD_STATUS                 0x004U
-#define CD_ATID                   0x008U
-#define CD_TAR0                   0x010U
-#define CD_SIZE0                  0x014U
+/* Crash_dump register map supplied by design. */
+#define CD_CTRL_REG               0x000U
+#define CD_SW_TRG_REG             0x004U
+#define CD_STATUS_REG             0x008U
+#define CD_ATB_ID_REG             0x00CU
+
+#define CD_TAR_ADDR_REG(x)        (0x010U + ((x) * 4U))
+#define CD_SIZE_REG(x)            (0x030U + ((x) * 4U))
 
 #define CD_CTRL_EN                (1U << 0)
-#define CD_CTRL_SW_TRG            (1U << 1)
+#define CD_SW_TRG_PULSE           (1U << 0)
 #define CD_STATUS_DONE            (1U << 0)
-#define CD_STATUS_ERR             (1U << 1)
+#define CD_STATUS_APB_RD_ERROR    (1U << 4)
 
 /* M52 debug aperture from dbg_address_mapping.xlsx, m9 m52_for_crash_dump. */
 #define M52_DEBUG_WINDOW_BASE     M52_CRASH_DUMP_BASE
 #define M52_DEBUG_WORDS           8U
+#define M52_DEBUG_BYTES           (M52_DEBUG_WORDS * 4U)
 
 /* AON SRAM is used by the ETR as the trace buffer. */
 #define AON_TRACE_BUF_SIZE        0x00010000U
@@ -60,35 +59,48 @@ static void crash_dump_config_and_trigger(void)
 {
     uint32_t status;
     uint32_t timeout;
+    uint32_t range;
 
     /*
-     * RESERVED: program only one source range for the smoke case.
-     * CD_SIZE0 is assumed to be a byte count; if the design uses a word
-     * count or an encoded range, update this write when the map is known.
+     * Program only range 0 for the smoke case. The APB read offset
+     * increments by 4 and is compared against size, so SIZE is a byte count.
      */
-    W32((uintptr_t)AON_CRASH_DUMP_BASE + CD_ATID, 0x00000001U);
-    W32((uintptr_t)AON_CRASH_DUMP_BASE + CD_TAR0, M52_DEBUG_WINDOW_BASE);
-    W32((uintptr_t)AON_CRASH_DUMP_BASE + CD_SIZE0,
-        M52_DEBUG_WORDS * 4U);
+    W32((uintptr_t)AON_CRASH_DUMP_BASE + CD_ATB_ID_REG, 0x00000001U);
+    W32((uintptr_t)AON_CRASH_DUMP_BASE + CD_TAR_ADDR_REG(0),
+        M52_DEBUG_WINDOW_BASE);
+    W32((uintptr_t)AON_CRASH_DUMP_BASE + CD_SIZE_REG(0), M52_DEBUG_BYTES);
 
-    /* TODO(design): EN/SW_TRG may be separate registers in the real map. */
-    W32((uintptr_t)AON_CRASH_DUMP_BASE + CD_CTRL,
-        CD_CTRL_EN | CD_CTRL_SW_TRG);
+    /* Ranges 1-7 are unused; keep them zero. */
+    for (range = 1U; range < 8U; ++range) {
+        W32((uintptr_t)AON_CRASH_DUMP_BASE + CD_TAR_ADDR_REG(range), 0U);
+        W32((uintptr_t)AON_CRASH_DUMP_BASE + CD_SIZE_REG(range), 0U);
+    }
 
-    status = R32((uintptr_t)AON_CRASH_DUMP_BASE + CD_STATUS);
+    /* Enable first, then issue a one-cycle software-trigger pulse. */
+    W32((uintptr_t)AON_CRASH_DUMP_BASE + CD_CTRL_REG, CD_CTRL_EN);
+    W32((uintptr_t)AON_CRASH_DUMP_BASE + CD_SW_TRG_REG, CD_SW_TRG_PULSE);
+
     for (timeout = 100000U; timeout != 0U; --timeout) {
+        status = R32((uintptr_t)AON_CRASH_DUMP_BASE + CD_STATUS_REG);
         if ((status & CD_STATUS_DONE) != 0U) {
             break;
         }
-        status = R32((uintptr_t)AON_CRASH_DUMP_BASE + CD_STATUS);
     }
 
     c_uvm_info("crash dump status=0x%08x timeout_left=%0d", status, timeout);
     if (timeout == 0U) {
         c_uvm_error("%s", "crash dump did not set DONE");
     }
-    if ((status & CD_STATUS_ERR) != 0U) {
-        c_uvm_error("%s", "crash dump reported ERROR");
+    if ((status & CD_STATUS_APB_RD_ERROR) != 0U) {
+        c_uvm_error("%s", "crash dump reported APB read error");
+    }
+
+    if (timeout != 0U) {
+        /*
+         * DONE means all ATB data has been sent; allow simulation time for
+         * the trace fabric/ETR write path to reach AON SRAM before reading.
+         */
+        delay_us(1);
     }
 }
 
@@ -132,7 +144,7 @@ CPU_TEST_START
 
         m52_debug_write_pattern();
 
-        /* RESERVED crash_dump programming and trigger. */
+        /* Program and trigger crash_dump through the design register map. */
         crash_dump_config_and_trigger();
 
         /*
