@@ -1,5 +1,5 @@
 /*
- * c_crash_dump_trace/main.cpp
+ * c_trace_crash_dump/main.cpp
  *
  * Crash-dump -> AON trace -> AON SRAM smoke test.
  *
@@ -33,8 +33,14 @@
 #define CD_STATUS_DONE            (1U << 0)
 #define CD_STATUS_APB_RD_ERROR    (1U << 4)
 
-/* M52 debug aperture from dbg_address_mapping.xlsx, m9 m52_for_crash_dump. */
-#define M52_DEBUG_WINDOW_BASE     M52_CRASH_DUMP_BASE
+/*
+ * The M52 debug block has two views:
+ *   - A720/system CPU writes go through the remapped view 0xE000_0000.
+ *   - crash_dump's APB master goes through APBIC m9 at 0x4A30_0000, which
+ *     then remaps to the same M52 debug space.
+ */
+#define M52_DEBUG_CPU_BASE        0xE0000000U
+#define M52_DEBUG_APBIC_BASE      M52_CRASH_DUMP_BASE
 #define M52_DEBUG_WORDS           8U
 #define M52_DEBUG_BYTES           (M52_DEBUG_WORDS * 4U)
 
@@ -47,7 +53,7 @@ static void m52_debug_write_pattern(void)
     uint32_t i;
 
     for (i = 0U; i < M52_DEBUG_WORDS; ++i) {
-        uint32_t addr = (uintptr_t)M52_DEBUG_WINDOW_BASE + (i * 4U);
+        uint32_t addr = (uintptr_t)M52_DEBUG_CPU_BASE + (i * 4U);
         uint32_t data = 0xC0DE1000U + i;
 
         W32(addr, data);
@@ -67,7 +73,7 @@ static void crash_dump_config_and_trigger(void)
      */
     W32((uintptr_t)AON_CRASH_DUMP_BASE + CD_ATB_ID_REG, 0x00000001U);
     W32((uintptr_t)AON_CRASH_DUMP_BASE + CD_TAR_ADDR_REG(0),
-        M52_DEBUG_WINDOW_BASE);
+        M52_DEBUG_APBIC_BASE);
     W32((uintptr_t)AON_CRASH_DUMP_BASE + CD_SIZE_REG(0), M52_DEBUG_BYTES);
 
     /* Ranges 1-7 are unused; keep them zero. */
