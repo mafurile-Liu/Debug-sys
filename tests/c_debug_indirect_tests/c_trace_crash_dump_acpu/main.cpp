@@ -54,7 +54,18 @@
 
 /* AON SRAM is used by the ETR as the trace buffer. */
 #define AON_TRACE_BUF_SIZE        0x00010000U
-#define AON_SRAM_CHECK_BYTES      0x00001000U
+/*
+ * The AON trace path is configured as:
+ *   crash_dump -> AON_FUNNEL port0 -> ETF HW FIFO -> replicator(both open)
+ *              -> ETR -> CATU pass-through -> AON_TRACE_BUF_ADDR
+ * The SRAM check must use the same base as the ETR DBA. 0x100 bytes covers
+ * the 6 x 4 x {data, addr} payload (192B), the ATB sync packet, and AXI
+ * 16-byte alignment.
+ */
+#define AON_TRACE_BUF_ADDR        AON_SRAM_BASE_ADDR
+#define AON_TRACE_FUNNEL_MASK     (1U << AON_CRASH_DUMP_FUNNEL_SLAVE_PORT)
+#define AON_TRACE_MODE            TRACE_MODE_ETF_CATU_BYPASS
+#define AON_SRAM_CHECK_BYTES      0x00000100U
 
 static const uint32_t acpu_cluster_bases[ACPU_CLUSTER_COUNT] = {
     ACPU_CLST0_DEBUG_BASE,
@@ -143,7 +154,7 @@ static int aon_sram_find_word(uint32_t value, uint32_t *found_off)
     uint32_t off;
 
     for (off = 0U; off < AON_SRAM_CHECK_BYTES; off += 4U) {
-        if (R32((uintptr_t)AON_SRAM_BASE_ADDR + off) == value) {
+        if (R32((uintptr_t)AON_TRACE_BUF_ADDR + off) == value) {
             *found_off = off;
             return 1;
         }
@@ -156,21 +167,25 @@ CPU_TEST_START
 
     // --------------- clks cfg finish ---------------- //
 
+    /* Clear only the checked range before the ETR is enabled. */
+    for (uint32_t off = 0U; off < AON_SRAM_CHECK_BYTES; off += 4U) {
+        W32((uintptr_t)AON_TRACE_BUF_ADDR + off, 0U);
+    }
+
     /*
      * Configure AON trace before triggering crash_dump.
      * Path: crash_dump(ATB) -> AON_FUNNEL port0 -> ETF -> ETR -> AON SRAM.
      * CATU is left in pass-through because the ETR buffer is linear.
      */
-    aon_trace_init(TRACE_MODE_ETF_CATU_BYPASS,
-                   0x01U,
-                   AON_SRAM_BASE_ADDR,
+    aon_trace_init(AON_TRACE_MODE,
+                   AON_TRACE_FUNNEL_MASK,
+                   AON_TRACE_BUF_ADDR,
                    AON_TRACE_BUF_SIZE,
                    CATU_SLADDR_DEFAULT);
 
-    /* Make comparison easier by clearing the first portion of the buffer. */
-    for (uint32_t off = 0U; off < AON_SRAM_CHECK_BYTES; off += 4U) {
-        W32((uintptr_t)AON_SRAM_BASE_ADDR + off, 0U);
-    }
+    c_uvm_info(
+        "aon trace check: mode=ETF_CATU_BYPASS funnel_mask=0x%02x buf=0x%08x check=0x%08x",
+        AON_TRACE_FUNNEL_MASK, AON_TRACE_BUF_ADDR, AON_SRAM_CHECK_BYTES);
 
     /* Capture live ROM-table data without writing the debug aperture. */
     {
