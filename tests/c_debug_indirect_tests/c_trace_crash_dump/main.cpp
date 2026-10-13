@@ -56,7 +56,7 @@ static void m52_debug_write_pattern(void)
         uint32_t addr = (uintptr_t)M52_DEBUG_CPU_BASE + (i * 4U);
         uint32_t data = 0xC0DE1000U + i;
 
-        W32(addr, data);
+        m52_ahbap_write(addr, data);
         c_uvm_info("m52 debug wr[0x%08x]=0x%08x", addr, data);
     }
 }
@@ -148,6 +148,7 @@ CPU_TEST_START
     {
         uint32_t missing = 0U;
 
+        m52_ahbap_config();
         m52_debug_write_pattern();
 
         /* Program and trigger crash_dump through the design register map. */

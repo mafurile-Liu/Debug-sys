@@ -72,6 +72,35 @@ uint32_t hifi_trace_atb_status(void)
 }
 
 /* ----------------------------------------------------------------------
+ * M52 AHB-AP indirect access helpers.
+ * The AP registers are accessed through the internal debug-APB view at
+ * 0x4A00_5000. CSW/TAR/DRW then access M52 PPB addresses (0xE000_xxxx).
+ * ---------------------------------------------------------------------- */
+void m52_ahbap_config(void)
+{
+    W32(M52_AHBAP_CSW,
+        M52_AHBAP_CSW_HNONSEC | M52_AHBAP_CSW_HPROT |
+        M52_AHBAP_CSW_ADDRINC | M52_AHBAP_CSW_SIZE32);
+}
+
+uint32_t m52_ahbap_idr(void)
+{
+    return R32(M52_AHBAP_IDR);
+}
+
+void m52_ahbap_write(uint32_t addr, uint32_t data)
+{
+    W32(M52_AHBAP_TAR, addr);
+    W32(M52_AHBAP_DRW, data);
+}
+
+uint32_t m52_ahbap_read(uint32_t addr)
+{
+    W32(M52_AHBAP_TAR, addr);
+    return R32(M52_AHBAP_DRW);
+}
+
+/* ----------------------------------------------------------------------
  * Enable a CoreSight Funnel and select one or more slave ports.
  * FUNNELCONTROL[7:0] is the receiver-interface enable mask.
  * Source: ARM 100806_0800_18 SoC-600 TRM, section 9.8.1.

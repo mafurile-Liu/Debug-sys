@@ -58,6 +58,18 @@ void dbg_ss_trace_init(trace_mode_t mode,
 
 void OPEN_DEBUG_CRG();
 
+/* Configure the M52 AHB-AP for 32-bit privileged data accesses. All
+ * M52 PPB accesses should then use m52_ahbap_read/m52_ahbap_write. */
+void m52_ahbap_config(void);
+
+/* Read the M52 AHB-AP IDR for AP connectivity/ID checks. */
+uint32_t m52_ahbap_idr(void);
+
+/* Access M52 PPB space through the AHB-AP TAR/DRW window. The address
+ * uses the M52 internal view (for example 0xE000_0000). */
+void m52_ahbap_write(uint32_t addr, uint32_t data);
+uint32_t m52_ahbap_read(uint32_t addr);
+
 /* Enable crash_dump as an AON trace source. */
 void crash_dump_start(void);
 

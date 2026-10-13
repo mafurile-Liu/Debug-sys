@@ -73,6 +73,21 @@
 /* M52-specific crash dump aperture. */
 #define M52_CRASH_DUMP_BASE  0x4A300000U
 
+/* M52 AHB-AP (m2 ahb_ap_m52) register window. Access these AP registers via
+ * the internal debug-APB view; TAR/DRW then target M52 PPB addresses such as
+ * 0xE000_0000. Addresses from dbg_address_mapping.xlsx, m2 ahb_ap_m52. */
+#define M52_AHBAP_BASE       0x4A005000U
+#define M52_AHBAP_CSW       (M52_AHBAP_BASE + 0xD00U)
+#define M52_AHBAP_TAR       (M52_AHBAP_BASE + 0xD04U)
+#define M52_AHBAP_DRW       (M52_AHBAP_BASE + 0xD0CU)
+#define M52_AHBAP_IDR       (M52_AHBAP_BASE + 0xDFCU)
+
+/* CSW fields (ARM SoC-600 TRM 9.1.5, Table 9-6). */
+#define M52_AHBAP_CSW_HNONSEC (1U << 30)
+#define M52_AHBAP_CSW_HPROT   (3U << 24)
+#define M52_AHBAP_CSW_ADDRINC (1U << 4)
+#define M52_AHBAP_CSW_SIZE32  (2U)
+
 /* AON system SRAM base used as the ETR trace buffer. */
 #define AON_SRAM_BASE_ADDR   0x27400000U
 

@@ -23,19 +23,6 @@
 #include "drv_debug.h"
 #include "coresight_trace_regs.h"   /* AON_SRAM_BASE_ADDR, CATU_SLADDR_DEFAULT */
 
-/* ---- AHB-AP (m2 ahb_ap_m52) windows ---- */
-#define AHBAP_INT_BASE  0x4A005000U   /* internal view: AP regs page1 */
-#define AHBAP_CSW       (AHBAP_INT_BASE + 0xD00U)
-#define AHBAP_TAR       (AHBAP_INT_BASE + 0xD04U)
-#define AHBAP_IDR       (AHBAP_INT_BASE + 0xDFCU)
-#define AHBAP_DRW       (AHBAP_INT_BASE + 0xD0CU)   /* data via internal view (same page as CSW/TAR) */
-
-/* CSW fields (SoC-600 TRM 9.1.5 Table 9-6) */
-#define AHBAP_CSW_HNONSEC  (1U << 30)
-#define AHBAP_CSW_HPROT    (3U << 24)             /* privileged, data (reset) */
-#define AHBAP_CSW_ADDRINC  (1U << 4)              /* single increment on DRW */
-#define AHBAP_CSW_SIZE32   (2U)                   /* 32-bit */
-
 /* ---- M52 PPB registers (M52 TRM 8.3, 18.2) ---- */
 #define M52_CPUID   0xE000ED00U
 #define M52_DHCSR   0xE000EDF0U
@@ -52,19 +39,6 @@
 #define M52_ETM_TRCTRACEIDR (M52_ETM_BASE + 0x200U)
 #define ETM_LAR_KEY  0xC5ACCE55U
 
-/* one M52 32-bit access = TAR write + DRW data access (external view) */
-static void m52_write(uint32_t addr, uint32_t data)
-{
-    W32(AHBAP_TAR, addr);
-    W32(AHBAP_DRW, data);
-}
-
-static uint32_t m52_read(uint32_t addr)
-{
-    W32(AHBAP_TAR, addr);
-    return R32(AHBAP_DRW);
-}
-
 CPU_TEST_START
     OPEN_DEBUG_CRG();
 
@@ -79,21 +53,20 @@ CPU_TEST_START
                    0x00010000U,
                    CATU_SLADDR_DEFAULT);
 
-    /* ---- 1. Configure the AHB-AP (external view) ----
+    /* ---- 1. Configure the M52 AHB-AP ----
      * HNONSEC=1, HPROT=privileged-data, AddrInc=single, Size=32-bit. */
-    W32(AHBAP_CSW, AHBAP_CSW_HNONSEC | AHBAP_CSW_HPROT |
-                   AHBAP_CSW_ADDRINC | AHBAP_CSW_SIZE32);
+    m52_ahbap_config();
 
     /* AP alive check: AHB-AP IDR (external view +0xDFC) */
     {
-        uint32_t idr = R32(AHBAP_IDR);
+        uint32_t idr = m52_ahbap_idr();
         c_uvm_info("ahbap IDR = 0x%08x (TRM: 0x54770008)", idr);
     }
 
-    /* ---- 2. M52 register access via external view (TAR + DRW) ---- */
+    /* ---- 2. M52 register access via AHB-AP TAR/DRW ---- */
     /* CPUID: expect 0x630FD244 (Arm China Cortex-M52, verified in sim) */
     {
-        uint32_t cpuid = m52_read(M52_CPUID);
+        uint32_t cpuid = m52_ahbap_read(M52_CPUID);
         if (cpuid == M52_CPUID_VAL) {
             c_uvm_info("m52 cpuid ok: 0x%08x", cpuid);
         } else {
@@ -102,31 +75,31 @@ CPU_TEST_START
     }
 
     {
-        uint32_t dhcsr = m52_read(M52_DHCSR);
+        uint32_t dhcsr = m52_ahbap_read(M52_DHCSR);
         c_uvm_info("m52 dhcsr = 0x%08x", dhcsr);
     }
 
     /* ---- 3. Enable M52 ITM + ETM trace output ---- */
     /* DEMCR.TRCENA = 1: must be set before programming/using the ITM
      * (M52 TRM 18.2) and it gates the ETM. */
-    m52_write(M52_DEMCR, M52_DEMCR_TRCENA);
+    m52_ahbap_write(M52_DEMCR, M52_DEMCR_TRCENA);
 
     /* ITM (M52 TRM 18.2): no LAR (not implemented); TCR = ITMEn | SYNCENA |
      * ATBID=1; TER = all 32 stimulus ports enabled. */
-    m52_write(M52_ITM_TCR, M52_ITM_TCR_VAL);
-    m52_write(M52_ITM_TER, 0xFFFFFFFFU);
+    m52_ahbap_write(M52_ITM_TCR, M52_ITM_TCR_VAL);
+    m52_ahbap_write(M52_ITM_TER, 0xFFFFFFFFU);
     {
-        uint32_t tcr = m52_read(M52_ITM_TCR);
+        uint32_t tcr = m52_ahbap_read(M52_ITM_TCR);
         c_uvm_info("itm tcr = 0x%08x (expect 0x00010009)", tcr);
     }
 
     /* ETM (ETMv4.5 ETM-M52): unlock LAR (if implemented), trace ID = 2,
      * then TRCPRGCTLR.EN = 1. TRM: Arm China CoreSight ETM-M52 TRM. */
-    m52_write(M52_ETM_LAR, ETM_LAR_KEY);
-    m52_write(M52_ETM_TRCTRACEIDR, 0x00000002U);
-    m52_write(M52_ETM_TRCPRGCTLR, 0x00000001U);
+    m52_ahbap_write(M52_ETM_LAR, ETM_LAR_KEY);
+    m52_ahbap_write(M52_ETM_TRCTRACEIDR, 0x00000002U);
+    m52_ahbap_write(M52_ETM_TRCPRGCTLR, 0x00000001U);
     {
-        uint32_t pgctlr = m52_read(M52_ETM_TRCPRGCTLR);
+        uint32_t pgctlr = m52_ahbap_read(M52_ETM_TRCPRGCTLR);
         c_uvm_info("etm prgctlr = 0x%08x (expect 0x1)", pgctlr);
     }
 
