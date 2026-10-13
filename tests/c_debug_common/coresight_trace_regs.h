@@ -73,6 +73,15 @@
 /* M52-specific crash dump aperture. */
 #define M52_CRASH_DUMP_BASE  0x4A300000U
 
+/* M52 PPB debug registers (Cortex-M52 TRM, Debug memory map).
+ * DWT comparator registers are used as safe RW debug registers for
+ * crash-dump payload setup. Do not use ITM_STIM0-31 for readback tests:
+ * stimulus writes generate ITM trace packets and are not stored data. */
+#define M52_DEMCR            0xE000EDFCU
+#define M52_DEMCR_TRCENA     (1U << 24)
+
+#define M52_DWT_COMP_REG(x)  (0xE0001000U + 0x0020U + ((x) * 0x10U))
+
 /* M52 AHB-AP (m2 ahb_ap_m52) register window. Access these AP registers via
  * the internal debug-APB view; TAR/DRW then target M52 PPB addresses such as
  * 0xE000_0000. Addresses from dbg_address_mapping.xlsx, m2 ahb_ap_m52. */

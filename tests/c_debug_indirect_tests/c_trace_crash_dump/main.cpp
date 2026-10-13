@@ -35,13 +35,17 @@
 
 /*
  * The M52 debug block has two views:
- *   - A720/system CPU writes go through the remapped view 0xE000_0000.
+ *   - The AHB-AP target address uses the M52 internal PPB view.
  *   - crash_dump's APB master goes through APBIC m9 at 0x4A30_0000, which
- *     then remaps to the same M52 debug space.
+ *     remaps M52 PPB 0xE000_0000.
+ *
+ * Use DWT comparator registers as the crash-dump payload. They are RW in the
+ * M52 TRM and readable back by crash_dump. ITM_STIM0-31 at 0xE000_0000 must
+ * not be used: writes there are stimulus transfers, not stored data, and ITM
+ * requires DEMCR.TRCENA to be enabled first (M52 TRM 18.2/19.5).
  */
-#define M52_DEBUG_CPU_BASE        0xE0000000U
 #define M52_DEBUG_APBIC_BASE      M52_CRASH_DUMP_BASE
-#define M52_DEBUG_WORDS           8U
+#define M52_DEBUG_WORDS           2U
 #define M52_DEBUG_BYTES           (M52_DEBUG_WORDS * 4U)
 
 /* AON SRAM is used by the ETR as the trace buffer. */
@@ -52,11 +56,20 @@ static void m52_debug_write_pattern(void)
 {
     uint32_t i;
 
+    /* DWT/ITM debugger accesses are gated by DEMCR.TRCENA (M52 TRM 19.1). */
+    m52_ahbap_write(M52_DEMCR, M52_DEMCR_TRCENA);
+
     for (i = 0U; i < M52_DEBUG_WORDS; ++i) {
-        uint32_t addr = (uintptr_t)M52_DEBUG_CPU_BASE + (i * 4U);
-        uint32_t data = 0xC0DE1000U + i;
+        uint32_t addr = M52_DWT_COMP_REG(i);
+        uint32_t data = 0xC0DE2000U + i;
+        uint32_t readback;
 
         m52_ahbap_write(addr, data);
+        readback = m52_ahbap_read(addr);
+        if (readback != data) {
+            c_uvm_error("m52 dwt comp%0d wr=0x%08x rd=0x%08x",
+                        i, data, readback);
+        }
         c_uvm_info("m52 debug wr[0x%08x]=0x%08x", addr, data);
     }
 }
@@ -68,16 +81,20 @@ static void crash_dump_config_and_trigger(void)
     uint32_t range;
 
     /*
-     * Program only range 0 for the smoke case. The APB read offset
+     * Program one 4-byte range per DWT comparator. The APB read offset
      * increments by 4 and is compared against size, so SIZE is a byte count.
      */
     W32((uintptr_t)AON_CRASH_DUMP_BASE + CD_ATB_ID_REG, 0x00000001U);
-    W32((uintptr_t)AON_CRASH_DUMP_BASE + CD_TAR_ADDR_REG(0),
-        M52_DEBUG_APBIC_BASE);
-    W32((uintptr_t)AON_CRASH_DUMP_BASE + CD_SIZE_REG(0), M52_DEBUG_BYTES);
 
     /* Ranges 1-7 are unused; keep them zero. */
-    for (range = 1U; range < 8U; ++range) {
+    for (range = 0U; range < M52_DEBUG_WORDS; ++range) {
+        W32((uintptr_t)AON_CRASH_DUMP_BASE + CD_TAR_ADDR_REG(range),
+            M52_DEBUG_APBIC_BASE + M52_DWT_COMP_REG(range) - 0xE0000000U);
+        W32((uintptr_t)AON_CRASH_DUMP_BASE + CD_SIZE_REG(range), 4U);
+    }
+
+    /* Ranges beyond the used DWT comparators are unused; keep them zero. */
+    for (range = M52_DEBUG_WORDS; range < 8U; ++range) {
         W32((uintptr_t)AON_CRASH_DUMP_BASE + CD_TAR_ADDR_REG(range), 0U);
         W32((uintptr_t)AON_CRASH_DUMP_BASE + CD_SIZE_REG(range), 0U);
     }
@@ -160,7 +177,7 @@ CPU_TEST_START
          * for it, independent of the exact 64-bit packet layout/endian view.
          */
         for (uint32_t i = 0U; i < M52_DEBUG_WORDS; ++i) {
-            uint32_t want = 0xC0DE1000U + i;
+            uint32_t want = 0xC0DE2000U + i;
             uint32_t found_off;
 
             if (aon_sram_find_word(want, &found_off) != 0U) {
