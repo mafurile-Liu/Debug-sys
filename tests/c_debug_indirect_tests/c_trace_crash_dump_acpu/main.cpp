@@ -191,6 +191,15 @@ CPU_TEST_START
         crash_dump_config_and_trigger();
 
         /*
+         * crash_dump DONE only means the source finished sending ATB traffic.
+         * Intermediate ATB/ETF buffering can still hold the tail, so issue a
+         * downstream ETF manual flush and allow the final ETR AXI write to
+         * land before checking SRAM.
+         */
+        aon_trace_flush();
+        delay_us(1);
+
+        /*
          * One bounded SRAM scan marks every expected data/addr word. This
          * avoids repeatedly scanning the whole ETR window for each payload.
          */

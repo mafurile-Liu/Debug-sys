@@ -142,6 +142,7 @@
  *   RRP/RRP_HI = RAM read pointer; TRM recommends RRP = RWP.
  *   CTL.TraceCaptEn (bit0) must be set to actually start trace capture. */
 #define TMC_CTL                 0x020U  /* ARM SoC-600 css600_tmc_etr: Control Register */
+#define TMC_FFSR                0x300U  /* ARM SoC-600 css600_tmc_etr: Formatter and Flush Status Register */
 #define TMC_FFCR                0x304U  /* ARM SoC-600 css600_tmc_etf: Formatter and Flush Control Register */
 #define TMC_RRD                 0x010U  /* RAM Read Data (APB read triggers AXI AR at RRP for ETR) */
 #define TMC_RWD                 0x024U  /* RAM Write Data */
@@ -150,6 +151,17 @@
 #define TMC_RRPHI               0x038U  /* RAM Read Pointer High */
 #define TMC_RWPHI               0x03cU  /* RAM Write Pointer High */
 #define TMC_CTL_TRACECAPTEN     (1U << 0)  /* CTL bit0: set to START trace capture (TRM 4.8.5 step 8) */
+/* STS bit2: TMCReady means capture has completed and all captured trace data
+ * has been written to trace memory. (SoC-600 TRM 9.18.2) */
+#define TMC_STS_TMCREADY        (1U << 2)
+/* FFSR bit0: Flush In Progress. (SoC-600 TRM 9.18.19) */
+#define TMC_FFSR_FLINPROG       (1U << 0)
+/* FFCR bit12: stop capture when flush completes. (SoC-600 TRM 9.18.20) */
+#define TMC_FFCR_STOPONFL       (1U << 12)
+/* FFCR bit6: manually generate a system flush. In HWF mode this flushes the
+ * trace sources feeding the TMC as well as the TMC itself. (SoC-600 TRM
+ * 4.8.4.3.2 / 9.18.20) */
+#define TMC_FFCR_FLUSHMAN       (1U << 6)
 /* AXICTL (TRM 9.18.15): [3:0] WrBurstLen = max AXI data transfers per burst,
  * 0 = 1 beat .. 15 = 16 beats. Arcache/Awcache fields write 0x0 if an invalid
  * value is programmed; ProtCtrlBit/ProtCtrlB drive arprot/awprot. Leave them

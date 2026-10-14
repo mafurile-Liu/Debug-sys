@@ -56,6 +56,13 @@ void dbg_ss_trace_init(trace_mode_t mode,
                        uint32_t     etr_buf_size,
                        uint32_t     catu_sladdr);
 
+/* Manually flush the AON ETF and the upstream ATB path. This is useful after
+ * a short trace source has completed: an ATB buffer may retain the tail of a
+ * small payload until an explicit flush arrives from the downstream ETF.
+ * The ETF FFCR.FlushMan request propagates upstream in HWF mode and drains
+ * the buffered ATB traffic into the ETR. */
+void aon_trace_flush(void);
+
 void OPEN_DEBUG_CRG();
 
 /* Configure the M52 AHB-AP for 32-bit privileged data accesses. All

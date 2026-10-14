@@ -415,6 +415,51 @@ void aon_trace_init(trace_mode_t mode,
 }
 
 /* ----------------------------------------------------------------------
+ * Flush the AON ETF and upstream ATB buffers.
+ * SoC-600 TRM 9.18.20: FFCR.FlushMan (bit6) manually generates a flush.
+ * TRM 4.8.4.3.2: in HWF mode this flushes trace sources feeding the TMC.
+ * Setting StopOnFl (bit12) also makes the ETF stop when flush completes.
+ * FFSR.FlInProg (bit0) clears when the flush has completed.
+ * ---------------------------------------------------------------------- */
+void aon_trace_flush(void)
+{
+    uint32_t ffcr = R32(AON_ETF_BASE + TMC_FFCR);
+    uint32_t timeout;
+    uint32_t ffsr;
+    uint32_t sts;
+
+    c_uvm_info("aon_trace_flush: FFCR=0x%08x", ffcr);
+
+    /*
+     * Preserve formatter enable bits and request a manual flush. StopOnFl
+     * makes the end of the short payload deterministic instead of leaving the
+     * ETF waiting for more ATB traffic.
+     */
+    W32(AON_ETF_BASE + TMC_FFCR,
+        ffcr | TMC_FFCR_FLUSHMAN | TMC_FFCR_STOPONFL);
+
+    for (timeout = 10000U; timeout != 0U; --timeout) {
+        ffsr = R32(AON_ETF_BASE + TMC_FFSR);
+        sts = R32(AON_ETF_BASE + TMC_STS);
+
+        if (((ffsr & TMC_FFSR_FLINPROG) == 0U) &&
+            ((sts & TMC_STS_TMCREADY) != 0U)) {
+            break;
+        }
+    }
+
+    c_uvm_info(
+        "aon_trace_flush: FFSR=0x%08x STS=0x%08x timeout_left=%0d",
+        ffsr,
+        sts,
+        timeout);
+
+    if (timeout == 0U) {
+        c_uvm_error("%s", "aon_trace_flush: ETF flush did not complete");
+    }
+}
+
+/* ----------------------------------------------------------------------
  * dbg_ss (SYS) trace tree startup.
  * Components: STM -> Funnel -> Replicator -> {ETF (port0), ETR->CATU (port1)}
  * Trace source (per AON_SS架构.png): STM
