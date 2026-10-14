@@ -431,19 +431,32 @@ void aon_trace_flush(void)
     c_uvm_info("aon_trace_flush: FFCR=0x%08x", ffcr);
 
     /*
-     * Preserve formatter enable bits and request a manual flush. StopOnFl
-     * makes the end of the short payload deterministic instead of leaving the
-     * ETF waiting for more ATB traffic.
+     * The SoC-600 TRM recommends setting StopOnFl first, then initiating the
+     * manual flush. Do not combine them into one write: the stop policy must
+     * already be armed when FlushMan rises.
      */
+    W32(AON_ETF_BASE + TMC_FFCR, ffcr | TMC_FFCR_STOPONFL);
     W32(AON_ETF_BASE + TMC_FFCR,
-        ffcr | TMC_FFCR_FLUSHMAN | TMC_FFCR_STOPONFL);
+        ffcr | TMC_FFCR_STOPONFL | TMC_FFCR_FLUSHMAN);
 
-    for (timeout = 10000U; timeout != 0U; --timeout) {
+    /* Wait for the manual flush itself to complete. */
+    for (timeout = 1000U; timeout != 0U; --timeout) {
         ffsr = R32(AON_ETF_BASE + TMC_FFSR);
+
+        if ((ffsr & TMC_FFSR_FLINPROG) == 0U) {
+            break;
+        }
+    }
+
+    /*
+     * After a StopOnFl-qualified flush, the ETF should enter Stopped state.
+     * Poll this separately so logs distinguish "flush completed" from
+     * "TMC reached Stopped/TMCReady".
+     */
+    for (timeout = 1000U; timeout != 0U; --timeout) {
         sts = R32(AON_ETF_BASE + TMC_STS);
 
-        if (((ffsr & TMC_FFSR_FLINPROG) == 0U) &&
-            ((sts & TMC_STS_TMCREADY) != 0U)) {
+        if ((sts & TMC_STS_TMCREADY) != 0U) {
             break;
         }
     }
