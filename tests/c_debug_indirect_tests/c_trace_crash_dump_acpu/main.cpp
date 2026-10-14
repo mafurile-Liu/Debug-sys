@@ -14,8 +14,8 @@
  *   clst0 0x4B00_0000, clst1 0x4B28_0000, clst2 0x4B50_0000,
  *   clst3 0x4B78_0000, clst4 0x4BA0_0000, clst5 0x4BC8_0000.
  * Each mapped region is 2.5MB (0x280000). This smoke test deliberately dumps
- * only the first 16 bytes of each window to keep the trace payload small and
- * avoid writing CoreSight ROM-table space.
+ * only the first 32 bytes of each window to avoid writing CoreSight ROM-table
+ * space while still producing enough ATB traffic to flush the trace buffer.
  *
  * Crash_dump register offsets/bits are from the design-provided register map:
  *   CTRL 0x000, SW_TRG 0x004, STATUS 0x008, ATB_ID 0x00C,
@@ -49,7 +49,7 @@
 #define ACPU_CLST5_DEBUG_BASE     0x4BC80000U
 
 #define ACPU_CLUSTER_COUNT        6U
-#define ACPU_CLUSTER_DUMP_BYTES   0x00000010U
+#define ACPU_CLUSTER_DUMP_BYTES   0x00000020U
 #define ACPU_CLUSTER_DUMP_WORDS   (ACPU_CLUSTER_DUMP_BYTES / 4U)
 
 /* AON SRAM is used by the ETR as the trace buffer. */
@@ -58,14 +58,17 @@
  * The AON trace path is configured as:
  *   crash_dump -> AON_FUNNEL port0 -> ETF HW FIFO -> replicator(both open)
  *              -> ETR -> CATU pass-through -> AON_TRACE_BUF_ADDR
- * The SRAM check must use the same base as the ETR DBA. 0x100 bytes covers
- * the 6 x 4 x {data, addr} payload (192B), the ATB sync packet, and AXI
- * 16-byte alignment.
+ * The SRAM check must use the same base as the ETR DBA.
+ *
+ * 6 clusters x 8 words gives 48 x 64-bit crash-dump payloads. When two
+ * 64-bit payloads are packed into one 128-bit ATB transfer, this is 24 ATB
+ * transfers and safely exceeds the 16-transfer flush requirement. 0x200
+ * covers 384B of payload, the ATB sync packet, and AXI 16-byte alignment.
  */
 #define AON_TRACE_BUF_ADDR        AON_SRAM_BASE_ADDR
 #define AON_TRACE_FUNNEL_MASK     (1U << AON_CRASH_DUMP_FUNNEL_SLAVE_PORT)
 #define AON_TRACE_MODE            TRACE_MODE_ETF_CATU_BYPASS
-#define AON_SRAM_CHECK_BYTES      0x00000100U
+#define AON_SRAM_CHECK_BYTES      0x00000200U
 
 static const uint32_t acpu_cluster_bases[ACPU_CLUSTER_COUNT] = {
     ACPU_CLST0_DEBUG_BASE,
@@ -149,19 +152,6 @@ static void crash_dump_config_and_trigger(void)
     }
 }
 
-static int aon_sram_find_word(uint32_t value, uint32_t *found_off)
-{
-    uint32_t off;
-
-    for (off = 0U; off < AON_SRAM_CHECK_BYTES; off += 4U) {
-        if (R32((uintptr_t)AON_TRACE_BUF_ADDR + off) == value) {
-            *found_off = off;
-            return 1;
-        }
-    }
-    return 0;
-}
-
 CPU_TEST_START
     OPEN_DEBUG_CRG();
 
@@ -190,6 +180,10 @@ CPU_TEST_START
     /* Capture live ROM-table data without writing the debug aperture. */
     {
         uint32_t missing = 0U;
+        uint32_t found_data[ACPU_CLUSTER_COUNT] = {0U};
+        uint32_t found_addr[ACPU_CLUSTER_COUNT] = {0U};
+        uint32_t data_off[ACPU_CLUSTER_COUNT][ACPU_CLUSTER_DUMP_WORDS];
+        uint32_t addr_off[ACPU_CLUSTER_COUNT][ACPU_CLUSTER_DUMP_WORDS];
 
         acpu_debug_capture_pattern();
 
@@ -197,44 +191,64 @@ CPU_TEST_START
         crash_dump_config_and_trigger();
 
         /*
-         * The crash_dump ATB payload is {data, addr}; therefore each 32-bit
-         * data word is expected to appear in the ETR trace buffer. Search
-         * for it, independent of the exact 64-bit packet layout/endian view.
+         * One bounded SRAM scan marks every expected data/addr word. This
+         * avoids repeatedly scanning the whole ETR window for each payload.
          */
+        for (uint32_t off = 0U; off < AON_SRAM_CHECK_BYTES; off += 4U) {
+            uint32_t got = R32((uintptr_t)AON_TRACE_BUF_ADDR + off);
+
+            for (uint32_t cluster = 0U; cluster < ACPU_CLUSTER_COUNT;
+                 ++cluster) {
+                for (uint32_t word = 0U; word < ACPU_CLUSTER_DUMP_WORDS;
+                     ++word) {
+                    if (((found_data[cluster] & (1U << word)) == 0U) &&
+                        (got == acpu_expected_data[cluster][word])) {
+                        found_data[cluster] |= (1U << word);
+                        data_off[cluster][word] = off;
+                    }
+
+                    if (((found_addr[cluster] & (1U << word)) == 0U) &&
+                        (got == (acpu_cluster_bases[cluster] + (word * 4U)))) {
+                        found_addr[cluster] |= (1U << word);
+                        addr_off[cluster][word] = off;
+                    }
+                }
+            }
+        }
+
         for (uint32_t cluster = 0U; cluster < ACPU_CLUSTER_COUNT;
              ++cluster) {
-            uint32_t found_count = 0U;
-
             for (uint32_t word = 0U; word < ACPU_CLUSTER_DUMP_WORDS;
                  ++word) {
                 uint32_t want_data = acpu_expected_data[cluster][word];
-                uint32_t want_addr = acpu_cluster_bases[cluster] +
-                                     (word * 4U);
-                uint32_t data_off;
-                uint32_t addr_off;
 
-                if (aon_sram_find_word(want_data, &data_off) == 0U) {
+                /*
+                 * A zero data word cannot be distinguished from the cleared
+                 * SRAM window, so rely on its unique dump address in that case.
+                 */
+                if (((found_data[cluster] & (1U << word)) == 0U) &&
+                    (want_data != 0U)) {
                     ++missing;
                     c_uvm_error(
                         "acpu%0d dump data 0x%08x not found in AON SRAM",
                         cluster, want_data);
                 }
-                else if (aon_sram_find_word(want_addr, &addr_off) == 0U) {
+
+                if ((found_addr[cluster] & (1U << word)) == 0U) {
                     ++missing;
                     c_uvm_error(
                         "acpu%0d dump address 0x%08x not found in AON SRAM",
-                        cluster, want_addr);
+                        cluster, acpu_cluster_bases[cluster] + (word * 4U));
                 }
-                else {
-                    ++found_count;
-                    if ((found_count & 0x0fU) == 1U) {
-                        c_uvm_info(
-                            "acpu%0d dump word 0x%08x at data 0x%08x addr 0x%08x",
-                            cluster, want_data,
-                            AON_SRAM_BASE_ADDR + data_off,
-                            AON_SRAM_BASE_ADDR + addr_off);
-                    }
-                }
+            }
+
+            if (((found_data[cluster] & (1U << 0)) != 0U) &&
+                ((found_addr[cluster] & (1U << 0)) != 0U)) {
+                c_uvm_info(
+                    "acpu%0d dump word 0x%08x at data 0x%08x addr 0x%08x",
+                    cluster, acpu_expected_data[cluster][0],
+                    AON_TRACE_BUF_ADDR + data_off[cluster][0],
+                    AON_TRACE_BUF_ADDR + addr_off[cluster][0]);
             }
         }
 
