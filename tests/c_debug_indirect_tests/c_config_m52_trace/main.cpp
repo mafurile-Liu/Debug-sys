@@ -1,87 +1,108 @@
 /*
  * c_config_m52_trace/main.cpp
  *
- * Minimal self-hosted M52 ITM/ETM trace case.
+ * ACPU-hosted indirect-access case: configure the AHB-AP (m2 ahb_ap_m52)
+ * through its debug-APB register windows, access the M52 via TAR/DRW, and
+ * enable the M52 ITM + ETM trace output.
  *
- * This program runs on the M52 core and accesses the core's PPB registers
- * directly. It does not use <stdio.h>, the AHB-AP TAR/DRW debug path, or the
- * full trace_config helper, keeping the binary small.
+ * Address scheme (dbg_address_mapping (1).xlsx, m2 ahb_ap_m52, 8KB block):
+ *   internal view 0x4A00_5000 : AP regs page1
+ *       CSW @ +0xD00, TAR @ +0xD04, DRW @ +0xD0C, IDR @ +0xDFC
+ *   All AHB-AP accesses (CSW/TAR/DRW) go through the internal view
+ *
+ * M52 PPB map (M52 TRM 8.3, Table 8-3/8-4):
+ *   ITM 0xE000_0000 (TER 0xE00, TCR 0xE80; no LAR - not implemented)
+ *   SCS 0xE000_E000 (CPUID 0xED00, DHCSR 0xEDF0, DEMCR 0xEDFC)
+ *   ETM 0xE004_1000 (ETMv4.5 ETM-M52: TRCPRGCTLR 0x004, TRCTRACEIDR 0x200,
+ *   LAR 0xFB0)
+ *   DEMCR.TRCENA must be set before programming/using the ITM (TRM 18.2).
  */
 
+#include <stdio.h>
 #include "drv_common.h"
-#include "coresight_trace_regs.h"
+#include "drv_debug.h"
+#include "coresight_trace_regs.h"   /* AON_SRAM_BASE_ADDR, CATU_SLADDR_DEFAULT */
 
-/* M52 PPB registers (M52 TRM). */
-#define M52_ITM_STIM(port)  (0xE0000000U + ((port) * 4U))
-#define M52_ITM_TER         0xE0000E00U
-#define M52_ITM_TCR         0xE0000E80U
-#define M52_ITM_TCR_VAL     ((1U << 16) | (1U << 3) | 1U)
-#define M52_ETM_BASE        0xE0041000U
-#define M52_ETM_LAR         (M52_ETM_BASE + 0xFB0U)
+/* ---- M52 PPB registers (M52 TRM 8.3, 18.2) ---- */
+#define M52_CPUID   0xE000ED00U
+#define M52_DHCSR   0xE000EDF0U
+#define M52_DEMCR   0xE000EDFCU
+#define M52_DEMCR_TRCENA   (1U << 24)
+#define M52_CPUID_VAL 0x630FD244U   /* Arm China Cortex-M52 (verified in sim) */
+#define M52_ITM_BASE 0xE0000000U
+#define M52_ITM_TER  (M52_ITM_BASE + 0xE00U)
+#define M52_ITM_TCR  (M52_ITM_BASE + 0xE80U)
+#define M52_ITM_TCR_VAL  ((1U << 16) | (1U << 3) | 1U)  /* ATBID=1, SYNCENA, ITMEn */
+#define M52_ETM_BASE 0xE0041000U
+#define M52_ETM_LAR  (M52_ETM_BASE + 0xFB0U)
 #define M52_ETM_TRCPRGCTLR  (M52_ETM_BASE + 0x004U)
 #define M52_ETM_TRCTRACEIDR (M52_ETM_BASE + 0x200U)
-#define ETM_LAR_KEY         0xC5ACCE55U
+#define ETM_LAR_KEY  0xC5ACCE55U
 
 CPU_TEST_START
     OPEN_DEBUG_CRG();
 
-    /* Minimal AON trace sink: ETF HW FIFO -> ETR -> AON SRAM. */
+    // --------------- clks cfg finish ---------------- //
+
+    /* Route the trace path so M52 ITM/ETM output has somewhere to go:
+     * funnel mask 0x07 = ports 0,1,2 (crash_dump + M52 ITM + M52 ETM -
+     * confirm exact port numbers against the design) -> ETF -> ETR. */
+    aon_trace_init(TRACE_MODE_ETF_CATU_BYPASS,
+                   0x07U,
+                   AON_SRAM_BASE_ADDR,
+                   0x00010000U,
+                   CATU_SLADDR_DEFAULT);
+
+    /* ---- 1. Configure the M52 AHB-AP ----
+     * HNONSEC=1, HPROT=privileged-data, AddrInc=single, Size=32-bit. */
+    m52_ahbap_config();
+
+    /* AP alive check: AHB-AP IDR (external view +0xDFC) */
     {
-        uint32_t funnel_ctrl = R32(AON_FUNNEL_BASE + FUNNEL_CTRL);
-
-        /* M52 ITM + M52 ETM funnel ports only. */
-        funnel_ctrl &= ~FUNNEL_CTRL_RX_EN_MASK;
-        funnel_ctrl |= 0x06U << FUNNEL_CTRL_RX_EN_SHIFT;
-        W32(AON_FUNNEL_BASE + FUNNEL_CTRL, funnel_ctrl);
-
-        W32(AON_REPLICATOR_BASE + REPL_IDFILTER0, REPL_IDFILTER_PASS_ALL);
-        W32(AON_REPLICATOR_BASE + REPL_IDFILTER1, REPL_IDFILTER_PASS_ALL);
-
-        W32(AON_ETF_BASE + TMC_MODE, TMC_MODE_HARDWARE_FIFO);
-        W32(AON_ETF_BASE + TMC_BUFWM, 0U);
-        W32(AON_ETF_BASE + TMC_RWP, 0U);
-        W32(AON_ETF_BASE + TMC_RRP, 0U);
-        W32(AON_ETF_BASE + TMC_FFCR, TMC_FFCR_ENTI | TMC_FFCR_ENFT);
-        W32(AON_ETF_BASE + TMC_CTL, TMC_CTL_TRACECAPTEN);
-
-        W32(AON_CATU_BASE + CATU_CONTROL, 0U);
-        W32(AON_CATU_BASE + CATU_MODE, CATU_MODE_PASSTHROUGH);
-        W32(AON_CATU_BASE + CATU_INADDRLO, AON_SRAM_BASE_ADDR);
-        W32(AON_CATU_BASE + CATU_INADDRHI, 0U);
-        W32(AON_CATU_BASE + CATU_CONTROL, CATU_CONTROL_EN);
-
-        W32(AON_ETR_BASE + TMC_RSZ, 0x00004000U); /* 64KB in 32-bit words */
-        W32(AON_ETR_BASE + TMC_MODE, TMC_MODE_CIRCULAR_BUFFER);
-        W32(AON_ETR_BASE + TMC_DBALO, AON_SRAM_BASE_ADDR);
-        W32(AON_ETR_BASE + TMC_DBAHI, 0U);
-        W32(AON_ETR_BASE + TMC_AXICTL, TMC_AXICTL_DEFAULT);
-        W32(AON_ETR_BASE + TMC_RWP, AON_SRAM_BASE_ADDR);
-        W32(AON_ETR_BASE + TMC_RRPHI, 0U);
-        W32(AON_ETR_BASE + TMC_RRP, AON_SRAM_BASE_ADDR);
-        W32(AON_ETR_BASE + TMC_RWPHI, 0U);
-        W32(AON_ETR_BASE + TMC_CTL, TMC_CTL_TRACECAPTEN);
+        uint32_t idr = m52_ahbap_idr();
+        c_uvm_info("ahbap IDR = 0x%08x (TRM: 0x54770008)", idr);
     }
 
-    /* Enable M52 debug trace logic. */
-    W32(M52_DEMCR, M52_DEMCR_TRCENA);
-
-    /* Enable all ITM stimulus ports and the ITM ATB interface. */
-    W32(M52_ITM_TER, 0xFFFFFFFFU);
-    W32(M52_ITM_TCR, M52_ITM_TCR_VAL);
-
-    /* Unlock ETM, set trace ID, then enable the programmer. */
-    W32(M52_ETM_LAR, ETM_LAR_KEY);
-    W32(M52_ETM_TRCTRACEIDR, 0x00000002U);
-    W32(M52_ETM_TRCPRGCTLR, 0x00000001U);
-
-    /*
-     * ITM only emits ATB data when software writes a stimulus port. Keep this
-     * loop tiny; it also provides enough data to exercise downstream flushing.
-     */
-    for (unsigned int i = 0U; i < 16U; ++i) {
-        W32(M52_ITM_STIM(0), 0xC0DE0000U + i);
+    /* ---- 2. M52 register access via AHB-AP TAR/DRW ---- */
+    /* CPUID: expect 0x630FD244 (Arm China Cortex-M52, verified in sim) */
+    {
+        uint32_t cpuid = m52_ahbap_read(M52_CPUID);
+        if (cpuid == M52_CPUID_VAL) {
+            c_uvm_info("m52 cpuid ok: 0x%08x", cpuid);
+        } else {
+            c_uvm_error("m52 cpuid mismatch: got 0x%08x want 0x630FD244", cpuid);
+        }
     }
 
-    c_uvm_info("%s", "m52 direct itm/etm trace enabled");
+    {
+        uint32_t dhcsr = m52_ahbap_read(M52_DHCSR);
+        c_uvm_info("m52 dhcsr = 0x%08x", dhcsr);
+    }
+
+    /* ---- 3. Enable M52 ITM + ETM trace output ---- */
+    /* DEMCR.TRCENA = 1: must be set before programming/using the ITM
+     * (M52 TRM 18.2) and it gates the ETM. */
+    m52_ahbap_write(M52_DEMCR, M52_DEMCR_TRCENA);
+
+    /* ITM (M52 TRM 18.2): no LAR (not implemented); TCR = ITMEn | SYNCENA |
+     * ATBID=1; TER = all 32 stimulus ports enabled. */
+    m52_ahbap_write(M52_ITM_TCR, M52_ITM_TCR_VAL);
+    m52_ahbap_write(M52_ITM_TER, 0xFFFFFFFFU);
+    {
+        uint32_t tcr = m52_ahbap_read(M52_ITM_TCR);
+        c_uvm_info("itm tcr = 0x%08x (expect 0x00010009)", tcr);
+    }
+
+    /* ETM (ETMv4.5 ETM-M52): unlock LAR (if implemented), trace ID = 2,
+     * then TRCPRGCTLR.EN = 1. TRM: Arm China CoreSight ETM-M52 TRM. */
+    m52_ahbap_write(M52_ETM_LAR, ETM_LAR_KEY);
+    m52_ahbap_write(M52_ETM_TRCTRACEIDR, 0x00000002U);
+    m52_ahbap_write(M52_ETM_TRCPRGCTLR, 0x00000001U);
+    {
+        uint32_t pgctlr = m52_ahbap_read(M52_ETM_TRCPRGCTLR);
+        c_uvm_info("etm prgctlr = 0x%08x (expect 0x1)", pgctlr);
+    }
+
+    c_uvm_info("%s", "m52 itm/etm trace output enabled");
     C_PASS();
 CPU_TEST_END
