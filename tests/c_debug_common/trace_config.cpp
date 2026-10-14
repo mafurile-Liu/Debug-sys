@@ -414,34 +414,27 @@ void aon_trace_init(trace_mode_t mode,
     }
 }
 
-/* ----------------------------------------------------------------------
- * Flush the AON ETF and upstream ATB buffers.
- * SoC-600 TRM 9.18.20: FFCR.FlushMan (bit6) manually generates a flush.
- * TRM 4.8.4.3.2: in HWF mode this flushes trace sources feeding the TMC.
- * Setting StopOnFl (bit12) also makes the ETF stop when flush completes.
- * FFSR.FlInProg (bit0) clears when the flush has completed.
- * ---------------------------------------------------------------------- */
-void aon_trace_flush(void)
+static void tmc_flush(uint32_t base)
 {
-    uint32_t ffcr = R32(AON_ETF_BASE + TMC_FFCR);
+    uint32_t ffcr = R32(base + TMC_FFCR);
     uint32_t timeout;
     uint32_t ffsr;
     uint32_t sts;
 
-    c_uvm_info("aon_trace_flush: FFCR=0x%08x", ffcr);
+    c_uvm_info("tmc_flush: base=0x%08x FFCR=0x%08x", base, ffcr);
 
     /*
      * The SoC-600 TRM recommends setting StopOnFl first, then initiating the
      * manual flush. Do not combine them into one write: the stop policy must
      * already be armed when FlushMan rises.
      */
-    W32(AON_ETF_BASE + TMC_FFCR, ffcr | TMC_FFCR_STOPONFL);
-    W32(AON_ETF_BASE + TMC_FFCR,
+    W32(base + TMC_FFCR, ffcr | TMC_FFCR_STOPONFL);
+    W32(base + TMC_FFCR,
         ffcr | TMC_FFCR_STOPONFL | TMC_FFCR_FLUSHMAN);
 
     /* Wait for the manual flush itself to complete. */
     for (timeout = 1000U; timeout != 0U; --timeout) {
-        ffsr = R32(AON_ETF_BASE + TMC_FFSR);
+        ffsr = R32(base + TMC_FFSR);
 
         if ((ffsr & TMC_FFSR_FLINPROG) == 0U) {
             break;
@@ -449,12 +442,12 @@ void aon_trace_flush(void)
     }
 
     /*
-     * After a StopOnFl-qualified flush, the ETF should enter Stopped state.
+     * After a StopOnFl-qualified flush, the TMC should enter Stopped state.
      * Poll this separately so logs distinguish "flush completed" from
      * "TMC reached Stopped/TMCReady".
      */
     for (timeout = 1000U; timeout != 0U; --timeout) {
-        sts = R32(AON_ETF_BASE + TMC_STS);
+        sts = R32(base + TMC_STS);
 
         if ((sts & TMC_STS_TMCREADY) != 0U) {
             break;
@@ -462,14 +455,24 @@ void aon_trace_flush(void)
     }
 
     c_uvm_info(
-        "aon_trace_flush: FFSR=0x%08x STS=0x%08x timeout_left=%0d",
+        "tmc_flush: FFSR=0x%08x STS=0x%08x timeout_left=%0d",
         ffsr,
         sts,
         timeout);
 
     if (timeout == 0U) {
-        c_uvm_error("%s", "aon_trace_flush: ETF flush did not complete");
+        c_uvm_error("tmc_flush: TMC at 0x%08x did not complete flush",
+                    base);
     }
+}
+
+/* Flush ETF first so it forwards its cached HWF data to the ETR. The ETR can
+ * still buffer an incomplete AXI write burst, so it must be flushed separately
+ * to force the final partial burst into AON SRAM before the check. */
+void aon_trace_flush(void)
+{
+    tmc_flush(AON_ETF_BASE);
+    tmc_flush(AON_ETR_BASE);
 }
 
 /* ----------------------------------------------------------------------
