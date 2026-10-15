@@ -8,7 +8,7 @@
  */
 
 #include "drv_common.h"
-#include "drv_debug.h"
+#include "drv_debug_small.h"
 
 /* M52 PPB registers (M52 TRM). */
 #define M52_CPUID           0xE000ED00U
@@ -48,7 +48,7 @@ static void m52_check_reg(const char *name,
 }
 
 COP_TEST_START
-    OPEN_DEBUG_CRG();
+    OPEN_DEBUG_CRG_SMALL();
 
     /*
      * Route M52 ITM/ETM through the shared AON trace helper:
