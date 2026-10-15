@@ -1,11 +1,10 @@
 /*
  * c_config_m52_trace_CORES_m52/main.cpp
  *
- * Minimal self-hosted M52 ITM/ETM trace case.
+ * Configure M52 ITM/ETM trace through the M52 AHB-AP debug window.
  *
- * This program runs on the M52 core and accesses the core's PPB registers
- * directly. It uses the shared AON trace helper for readability and does not
- * use <stdio.h> or the AHB-AP TAR/DRW debug path.
+ * This case uses the existing m52_ahbap_* helpers for all M52 PPB accesses.
+ * It does not write PPB addresses directly and does not use <stdio.h>.
  */
 
 #include "drv_common.h"
@@ -13,12 +12,15 @@
 
 /* M52 PPB registers (M52 TRM). */
 #define M52_ITM_STIM(port)  (0xE0000000U + ((port) * 4U))
-#define M52_ITM_LAR         0xE0000FB0U
 #define M52_ITM_TER         0xE0000E00U
+#define M52_ITM_TPR         0xE0000E40U
 #define M52_ITM_TCR         0xE0000E80U
-#define M52_ITM_TCR_VAL     ((1U << 16) | (1U << 3) | (1U << 2) | 1U)
+#define M52_ITM_TCR_ATBID_SHIFT 16U
+#define M52_ITM_TCR_ITMEN   (1U << 0)
+#define M52_ITM_TCR_SYNCENA (1U << 2)
+#define M52_ITM_TCR_VAL     ((1U << M52_ITM_TCR_ATBID_SHIFT) | \
+                         M52_ITM_TCR_SYNCENA | M52_ITM_TCR_ITMEN)
 #define M52_ETM_BASE        0xE0041000U
-#define M52_ETM_LAR         (M52_ETM_BASE + 0xFB0U)
 #define M52_ETM_TRCPRGCTLR  (M52_ETM_BASE + 0x004U)
 #define M52_ETM_TRCSTATR    (M52_ETM_BASE + 0x00CU)
 #define M52_ETM_TRCCONFIGR  (M52_ETM_BASE + 0x010U)
@@ -28,7 +30,6 @@
 #define M52_ETM_TRCTSCTLR   (M52_ETM_BASE + 0x030U)
 #define M52_ETM_TRCTRACEIDR (M52_ETM_BASE + 0x200U)
 #define M52_ETM_TRCVICTLR   (M52_ETM_BASE + 0x080U)
-#define ETM_LAR_KEY         0xC5ACCE55U
 #define ETM_TRCSTATR_IDLE   (1U << 0)
 
 COP_TEST_START
@@ -44,46 +45,48 @@ COP_TEST_START
                    0x00010000U,
                    CATU_SLADDR_DEFAULT);
 
-    /* Enable M52 debug trace logic. */
-    W32(M52_DEMCR, M52_DEMCR_TRCENA);
+    /* Configure the M52 PPB access window before any M52 register access. */
+    m52_ahbap_config();
 
-    /* Unlock ITM, enable all stimulus ports, then enable the ITM ATB
-     * interface and sync packets. */
-    W32(M52_ITM_LAR, ETM_LAR_KEY);
-    W32(M52_ITM_TER, 0xFFFFFFFFU);
-    W32(M52_ITM_TCR, M52_ITM_TCR_VAL);
+    /* Enable M52 debug trace logic. */
+    m52_ahbap_write(M52_DEMCR, M52_DEMCR_TRCENA);
+
+    /* Enable all stimulus ports, then enable the ITM ATB interface. */
+    m52_ahbap_write(M52_ITM_TPR, 0x0000000FU);
+    m52_ahbap_write(M52_ITM_TER, 0xFFFFFFFFU);
+    m52_ahbap_write(M52_ITM_TCR, M52_ITM_TCR_VAL);
 
     /*
      * ETM-M52 programming sequence:
      * disable -> wait TRCSTATR.IDLE -> program required registers -> enable.
      * TRCSYNCPR is RO on M52 and must not be written.
      */
-    W32(M52_ETM_LAR, ETM_LAR_KEY);
-    W32(M52_ETM_TRCPRGCTLR, 0U);
+    m52_ahbap_write(M52_ETM_TRCPRGCTLR, 0U);
 
     for (unsigned int i = 0U; i < 1000U; ++i) {
-        if ((R32(M52_ETM_TRCSTATR) & ETM_TRCSTATR_IDLE) != 0U) {
+        if ((m52_ahbap_read(M52_ETM_TRCSTATR) & ETM_TRCSTATR_IDLE) != 0U) {
             break;
         }
     }
 
-    W32(M52_ETM_TRCCONFIGR, 0x000018C1U);
-    W32(M52_ETM_TRCEVENTCTL0R, 0x00000000U);
-    W32(M52_ETM_TRCEVENTCTL1R, 0x00000000U);
-    W32(M52_ETM_TRCSTALLCTLR, 0x00000000U);
-    W32(M52_ETM_TRCTSCTLR, 0x00000000U);
-    W32(M52_ETM_TRCTRACEIDR, 0x00000002U);
-    W32(M52_ETM_TRCVICTLR, 0x00000201U);
-    W32(M52_ETM_TRCPRGCTLR, 1U);
+    /* M52 does not implement Context ID/VMID tracing. */
+    m52_ahbap_write(M52_ETM_TRCCONFIGR, 0x00001801U);
+    m52_ahbap_write(M52_ETM_TRCEVENTCTL0R, 0x00000000U);
+    m52_ahbap_write(M52_ETM_TRCEVENTCTL1R, 0x00000000U);
+    m52_ahbap_write(M52_ETM_TRCSTALLCTLR, 0x00000000U);
+    m52_ahbap_write(M52_ETM_TRCTSCTLR, 0x00000000U);
+    m52_ahbap_write(M52_ETM_TRCTRACEIDR, 0x00000002U);
+    m52_ahbap_write(M52_ETM_TRCVICTLR, 0x00010201U);
+    m52_ahbap_write(M52_ETM_TRCPRGCTLR, 1U);
 
     /*
      * ITM only emits ATB data when software writes a stimulus port. Keep this
      * loop tiny; it also provides enough data to exercise downstream flushing.
      */
     for (unsigned int i = 0U; i < 16U; ++i) {
-        W32(M52_ITM_STIM(0), 0xC0DE0000U + i);
+        m52_ahbap_write(M52_ITM_STIM(0), 0xC0DE0000U + i);
     }
 
-    c_uvm_info("%s", "m52 direct itm/etm trace enabled");
+    c_uvm_info("%s", "m52 itm/etm trace enabled via AHB-AP");
     C_PASS();
 COP_TEST_END
