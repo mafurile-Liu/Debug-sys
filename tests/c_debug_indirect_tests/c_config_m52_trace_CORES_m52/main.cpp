@@ -13,9 +13,10 @@
 
 /* M52 PPB registers (M52 TRM). */
 #define M52_ITM_STIM(port)  (0xE0000000U + ((port) * 4U))
+#define M52_ITM_LAR         0xE0000FB0U
 #define M52_ITM_TER         0xE0000E00U
 #define M52_ITM_TCR         0xE0000E80U
-#define M52_ITM_TCR_VAL     ((1U << 16) | (1U << 3) | 1U)
+#define M52_ITM_TCR_VAL     ((1U << 16) | (1U << 3) | (1U << 2) | 1U)
 #define M52_ETM_BASE        0xE0041000U
 #define M52_ETM_LAR         (M52_ETM_BASE + 0xFB0U)
 #define M52_ETM_TRCPRGCTLR  (M52_ETM_BASE + 0x004U)
@@ -38,7 +39,9 @@ COP_TEST_START
     /* Enable M52 debug trace logic. */
     W32(M52_DEMCR, M52_DEMCR_TRCENA);
 
-    /* Enable all ITM stimulus ports and the ITM ATB interface. */
+    /* Unlock ITM, enable all stimulus ports, then enable the ITM ATB
+     * interface and sync packets. */
+    W32(M52_ITM_LAR, ETM_LAR_KEY);
     W32(M52_ITM_TER, 0xFFFFFFFFU);
     W32(M52_ITM_TCR, M52_ITM_TCR_VAL);
 
