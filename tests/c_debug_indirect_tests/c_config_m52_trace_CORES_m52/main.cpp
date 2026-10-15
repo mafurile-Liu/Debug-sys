@@ -22,7 +22,7 @@
 #define M52_ETM_TRCTRACEIDR (M52_ETM_BASE + 0x200U)
 #define ETM_LAR_KEY         0xC5ACCE55U
 
-CPU_TEST_START
+COP_TEST_START
     OPEN_DEBUG_CRG();
 
     /*
@@ -57,4 +57,4 @@ CPU_TEST_START
 
     c_uvm_info("%s", "m52 direct itm/etm trace enabled");
     C_PASS();
-CPU_TEST_END
+COP_TEST_END
