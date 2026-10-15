@@ -20,8 +20,16 @@
 #define M52_ETM_BASE        0xE0041000U
 #define M52_ETM_LAR         (M52_ETM_BASE + 0xFB0U)
 #define M52_ETM_TRCPRGCTLR  (M52_ETM_BASE + 0x004U)
+#define M52_ETM_TRCSTATR    (M52_ETM_BASE + 0x00CU)
+#define M52_ETM_TRCCONFIGR  (M52_ETM_BASE + 0x010U)
+#define M52_ETM_TRCEVENTCTL0R (M52_ETM_BASE + 0x020U)
+#define M52_ETM_TRCEVENTCTL1R (M52_ETM_BASE + 0x024U)
+#define M52_ETM_TRCSTALLCTLR (M52_ETM_BASE + 0x02CU)
+#define M52_ETM_TRCTSCTLR   (M52_ETM_BASE + 0x030U)
 #define M52_ETM_TRCTRACEIDR (M52_ETM_BASE + 0x200U)
+#define M52_ETM_TRCVICTLR   (M52_ETM_BASE + 0x080U)
 #define ETM_LAR_KEY         0xC5ACCE55U
+#define ETM_TRCSTATR_IDLE   (1U << 0)
 
 COP_TEST_START
     OPEN_DEBUG_CRG();
@@ -45,10 +53,28 @@ COP_TEST_START
     W32(M52_ITM_TER, 0xFFFFFFFFU);
     W32(M52_ITM_TCR, M52_ITM_TCR_VAL);
 
-    /* Unlock ETM, set trace ID, then enable the programmer. */
+    /*
+     * ETM-M52 programming sequence:
+     * disable -> wait TRCSTATR.IDLE -> program required registers -> enable.
+     * TRCSYNCPR is RO on M52 and must not be written.
+     */
     W32(M52_ETM_LAR, ETM_LAR_KEY);
+    W32(M52_ETM_TRCPRGCTLR, 0U);
+
+    for (unsigned int i = 0U; i < 1000U; ++i) {
+        if ((R32(M52_ETM_TRCSTATR) & ETM_TRCSTATR_IDLE) != 0U) {
+            break;
+        }
+    }
+
+    W32(M52_ETM_TRCCONFIGR, 0x000018C1U);
+    W32(M52_ETM_TRCEVENTCTL0R, 0x00000000U);
+    W32(M52_ETM_TRCEVENTCTL1R, 0x00000000U);
+    W32(M52_ETM_TRCSTALLCTLR, 0x00000000U);
+    W32(M52_ETM_TRCTSCTLR, 0x00000000U);
     W32(M52_ETM_TRCTRACEIDR, 0x00000002U);
-    W32(M52_ETM_TRCPRGCTLR, 0x00000001U);
+    W32(M52_ETM_TRCVICTLR, 0x00000201U);
+    W32(M52_ETM_TRCPRGCTLR, 1U);
 
     /*
      * ITM only emits ATB data when software writes a stimulus port. Keep this
