@@ -91,8 +91,9 @@
 #define M52_AHBAP_DRW       (M52_AHBAP_BASE + 0xD0CU)
 #define M52_AHBAP_IDR       (M52_AHBAP_BASE + 0xDFCU)
 
-/* CSW fields (ARM SoC-600 TRM 9.1.5, Table 9-6). */
-#define M52_AHBAP_CSW_HNONSEC (1U << 30)
+/* CSW fields (ARM SoC-600 TRM 9.1.5, Table 9-6).
+ * M52 PPB/debug accesses use Secure-privileged data accesses, so do not set
+ * CSW.HNONSEC. */
 #define M52_AHBAP_CSW_HPROT   (3U << 24)
 #define M52_AHBAP_CSW_ADDRINC (1U << 4)
 #define M52_AHBAP_CSW_SIZE32  (2U)

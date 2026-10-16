@@ -78,9 +78,14 @@ uint32_t hifi_trace_atb_status(void)
  * ---------------------------------------------------------------------- */
 void m52_ahbap_config(void)
 {
+    /*
+     * Use Secure-privileged data access for M52 PPB/debug registers.
+     * Do not set CSW.HNONSEC: 1 would drive the AHB-AP as Non-secure.
+     */
     W32(M52_AHBAP_CSW,
-        M52_AHBAP_CSW_HNONSEC | M52_AHBAP_CSW_HPROT |
-        M52_AHBAP_CSW_ADDRINC | M52_AHBAP_CSW_SIZE32);
+        M52_AHBAP_CSW_HPROT |
+        M52_AHBAP_CSW_ADDRINC |
+        M52_AHBAP_CSW_SIZE32);
 }
 
 uint32_t m52_ahbap_idr(void)
