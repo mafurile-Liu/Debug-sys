@@ -151,6 +151,12 @@ COP_TEST_START
         m52_ahbap_write(M52_ITM_STIM(0), 0xC0DE0000U + i);
     }
 
+    /*
+     * Drain the short ITM/ETM burst out of the HW FIFO path so it reaches
+     * AON SRAM instead of being retained in ETF/ETR buffers.
+     */
+    aon_trace_flush();
+
     {
         uint32_t stim_status = m52_ahbap_read(M52_ITM_STIM(0));
         c_uvm_info("ITM_STIM0 = 0x%08x (FIFOREADY=%0d)",
