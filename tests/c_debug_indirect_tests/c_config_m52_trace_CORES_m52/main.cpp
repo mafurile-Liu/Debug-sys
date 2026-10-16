@@ -31,7 +31,11 @@
 #define M52_ETM_TRCTSCTLR   (M52_ETM_BASE + 0x030U)
 #define M52_ETM_TRCTRACEIDR (M52_ETM_BASE + 0x200U)
 #define M52_ETM_TRCVICTLR   (M52_ETM_BASE + 0x080U)
+#define M52_ETM_TRCPDCR     (M52_ETM_BASE + 0x310U)
+#define M52_ETM_TRCPDSR     (M52_ETM_BASE + 0x314U)
 #define ETM_TRCSTATR_IDLE   (1U << 0)
+#define ETM_TRCPDCR_PU      (1U << 3)
+#define ETM_TRCPDSR_POWER   (1U << 0)
 
 static void m52_check_reg(const char *name,
                           uint32_t got,
@@ -86,6 +90,13 @@ COP_TEST_START
     m52_check_reg("ITM_TCR", m52_ahbap_read(M52_ITM_TCR),
                   M52_ITM_TCR_VAL, M52_ITM_TCR_VAL);
 
+    /* ETM must be powered before any trace register is programmed. */
+    m52_ahbap_write(M52_ETM_TRCPDCR, ETM_TRCPDCR_PU);
+    m52_check_reg("ETM_TRCPDCR", m52_ahbap_read(M52_ETM_TRCPDCR),
+                  ETM_TRCPDCR_PU, ETM_TRCPDCR_PU);
+    m52_check_reg("ETM_TRCPDSR", m52_ahbap_read(M52_ETM_TRCPDSR),
+                  ETM_TRCPDSR_POWER, ETM_TRCPDSR_POWER);
+
     /*
      * ETM-M52 programming sequence:
      * disable -> wait TRCSTATR.IDLE -> program required registers -> enable.
@@ -94,7 +105,7 @@ COP_TEST_START
     m52_ahbap_write(M52_ETM_TRCPRGCTLR, 0U);
 
     uint32_t etm_status = 0U;
-    for (unsigned int i = 0U; i < 1000U; ++i) {
+    for (unsigned int i = 0U; i < 100U; ++i) {
         etm_status = m52_ahbap_read(M52_ETM_TRCSTATR);
         if ((etm_status & ETM_TRCSTATR_IDLE) != 0U) {
             break;
