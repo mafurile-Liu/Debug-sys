@@ -3,7 +3,7 @@
  *
  * ACPU-hosted indirect-access case: configure the AHB-AP (m2 ahb_ap_m52)
  * through its debug-APB register windows, access the M52 via TAR/DRW, and
- * enable the M52 ITM + ETM trace output.
+ * enable M52 ITM output and ETM event-trace output.
  *
  * Address scheme (dbg_address_mapping (1).xlsx, m2 ahb_ap_m52, 8KB block):
  *   internal view 0x4A00_5000 : AP regs page1
@@ -34,10 +34,15 @@
 #define M52_ITM_TCR  (M52_ITM_BASE + 0xE80U)
 #define M52_ITM_TCR_VAL  ((1U << 16) | (1U << 3) | 1U)  /* ATBID=1, SYNCENA, ITMEn */
 #define M52_ETM_BASE 0xE0041000U
-#define M52_ETM_LAR  (M52_ETM_BASE + 0xFB0U)
 #define M52_ETM_TRCPRGCTLR  (M52_ETM_BASE + 0x004U)
+#define M52_ETM_TRCEVENTCTL0R (M52_ETM_BASE + 0x020U)
+#define M52_ETM_TRCEVENTCTL1R (M52_ETM_BASE + 0x024U)
 #define M52_ETM_TRCTRACEIDR (M52_ETM_BASE + 0x200U)
-#define ETM_LAR_KEY  0xC5ACCE55U
+#define M52_ETM_TRCVICTLR   (M52_ETM_BASE + 0x080U)
+/* Resource selector 1 is architecturally always TRUE. */
+#define ETM_EVENT0_ALWAYS_TRUE     0x00000001U
+#define ETM_EVENT0_INSTEN          0x00000001U
+#define ETM_VIEWINST_ALWAYS_ACTIVE 0x00010201U
 
 CPU_TEST_START
     OPEN_DEBUG_CRG();
@@ -93,10 +98,16 @@ CPU_TEST_START
         c_uvm_info("itm tcr = 0x%08x (expect 0x00010009)", tcr);
     }
 
-    /* ETM (ETMv4.5 ETM-M52): unlock LAR (if implemented), trace ID = 2,
-     * then TRCPRGCTLR.EN = 1. TRM: Arm China CoreSight ETM-M52 TRM. */
-    m52_ahbap_write(M52_ETM_LAR, ETM_LAR_KEY);
+    /*
+     * ETM (ETMv4.5 ETM-M52): use event trace instead of instruction trace so
+     * ETM can still emit ATB packets while M52 is stalled on a fetch error.
+     * Resource selector 1 is always TRUE; event 0 therefore fires without
+     * relying on M52 instruction execution.
+     */
     m52_ahbap_write(M52_ETM_TRCTRACEIDR, 0x00000002U);
+    m52_ahbap_write(M52_ETM_TRCEVENTCTL0R, ETM_EVENT0_ALWAYS_TRUE);
+    m52_ahbap_write(M52_ETM_TRCEVENTCTL1R, ETM_EVENT0_INSTEN);
+    m52_ahbap_write(M52_ETM_TRCVICTLR, ETM_VIEWINST_ALWAYS_ACTIVE);
     m52_ahbap_write(M52_ETM_TRCPRGCTLR, 0x00000001U);
     {
         uint32_t pgctlr = m52_ahbap_read(M52_ETM_TRCPRGCTLR);
