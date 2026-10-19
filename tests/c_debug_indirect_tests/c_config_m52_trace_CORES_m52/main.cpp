@@ -12,6 +12,10 @@
 
 /* M52 PPB registers (M52 TRM). */
 #define M52_CPUID           0xE000ED00U
+#define M52_SCS_ICSR        0xE000ED04U
+#define M52_SCS_SHCSR       0xE000ED24U
+#define M52_SCS_CFSR        0xE000ED28U
+#define M52_SCS_HFSR        0xE000ED2CU
 #define M52_ITM_STIM(port)  (0xE0000000U + ((port) * 4U))
 #define M52_ITM_TER         0xE0000E00U
 #define M52_ITM_TPR         0xE0000E40U
@@ -51,6 +55,41 @@ static void m52_check_reg(const char *name,
     }
 }
 
+static void m52_read_fault_csrs(void)
+{
+    uint32_t icsr = m52_ahbap_read(M52_SCS_ICSR);
+    uint32_t shcsr = m52_ahbap_read(M52_SCS_SHCSR);
+    uint32_t cfsr = m52_ahbap_read(M52_SCS_CFSR);
+    uint32_t hfsr = m52_ahbap_read(M52_SCS_HFSR);
+
+    c_uvm_info("ICSR = 0x%08x (VECTACTIVE=%0d VECTPENDING=%0d ISRPENDING=%0d)",
+               icsr,
+               icsr & 0x000001FFU,
+               (icsr >> 12U) & 0x000001FFU,
+               (icsr & (1U << 22U)) != 0U);
+    c_uvm_info(
+        "SHCSR = 0x%08x (USGACTIVE=%0d MEMACTIVE=%0d BUSACTIVE=%0d "
+        "USGPENDED=%0d MEMPENDED=%0d BUSPENDED=%0d SVCPENDED=%0d)",
+        shcsr,
+        (shcsr & (1U << 8U)) != 0U,
+        (shcsr & (1U << 9U)) != 0U,
+        (shcsr & (1U << 10U)) != 0U,
+        (shcsr & (1U << 12U)) != 0U,
+        (shcsr & (1U << 13U)) != 0U,
+        (shcsr & (1U << 14U)) != 0U,
+        (shcsr & (1U << 15U)) != 0U);
+    c_uvm_info("CFSR = 0x%08x (MMFSR=0x%02x BFSR=0x%02x UFSR=0x%04x)",
+               cfsr,
+               cfsr & 0x000000FFU,
+               (cfsr >> 8U) & 0x000000FFU,
+               (cfsr >> 16U) & 0x0000FFFFU);
+    c_uvm_info("HFSR = 0x%08x (DEBUGEVT=%0d FORCED=%0d VECTTBL=%0d)",
+               hfsr,
+               (hfsr & (1U << 31U)) != 0U,
+               (hfsr & (1U << 30U)) != 0U,
+               (hfsr & (1U << 1U)) != 0U);
+}
+
 COP_TEST_START
     OPEN_DEBUG_CRG_SMALL();
 
@@ -78,6 +117,8 @@ COP_TEST_START
     m52_ahbap_write(M52_DEMCR, M52_DEMCR_TRCENA);
     m52_check_reg("DEMCR", m52_ahbap_read(M52_DEMCR),
                   M52_DEMCR_TRCENA, M52_DEMCR_TRCENA);
+
+    m52_read_fault_csrs();
 
     /* Enable all stimulus ports, then enable the ITM ATB interface. */
     m52_ahbap_write(M52_ITM_TPR, 0x0000000FU);
