@@ -58,8 +58,13 @@
 #define AON_AXI_AP_DRW            (AON_AXI_AP_BASE + 0xD0CU)
 #define AON_AXI_AP_IDR            (AON_AXI_AP_BASE + 0xDFCU)
 
-/* MEM-AP CSW: privileged secure data access, 32-bit transfer. */
-#define AON_AXI_AP_CSW_PROT       (1U << 28)
+/*
+ * MEM-AP CSW: non-secure privileged data, normal non-cacheable system
+ * domain, 32-bit transfer.
+ */
+#define AON_AXI_AP_CSW_PROT       (3U << 28)
+#define AON_AXI_AP_CSW_CACHE      (2U << 24)
+#define AON_AXI_AP_CSW_DOMAIN     (3U << 13)
 #define AON_AXI_AP_CSW_SIZE32     2U
 
 /* Small SRAM window checked after the trace path has been flushed. */
@@ -67,7 +72,11 @@
 
 static void aon_axi_ap_config(void)
 {
-    W32(AON_AXI_AP_CSW, AON_AXI_AP_CSW_PROT | AON_AXI_AP_CSW_SIZE32);
+    W32(AON_AXI_AP_CSW,
+        AON_AXI_AP_CSW_PROT |
+        AON_AXI_AP_CSW_CACHE |
+        AON_AXI_AP_CSW_DOMAIN |
+        AON_AXI_AP_CSW_SIZE32);
     c_uvm_info("aon axi-ap IDR=0x%08x", R32(AON_AXI_AP_IDR));
 }
 
