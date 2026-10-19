@@ -16,13 +16,13 @@
 #include "drv_debug.h"
 
 /* PMU config block on AON_CFG_APB. */
-#define AON_PMU_CFG_BASE          0x020BA000U
+#define AON_PMU_CFG_BASE          0x020CA000U
 
 /* TODO: fill these offsets/bit from the PMU register map before running. */
-#define AON_PMU_TRACE_EN_OFF      0x00000000U
-#define AON_PMU_MODE_OFF          0x00000004U
-#define AON_PMU_TRACE_EN_MASK     0x00000001U
-#define AON_PMU_MODE_DEFAULT      0x00000001U
+#define AON_PMU_TRACE_EN_OFF      0x00000004U
+#define AON_PMU_MODE_OFF          0x0000001CU
+#define AON_PMU_TRACE_EN_MASK     0x00000040U
+#define AON_PMU_MODE_DEFAULT      0x00000005U
 
 #define AON_PMU_TRACE_EN_REG \
     (AON_PMU_CFG_BASE + AON_PMU_TRACE_EN_OFF)
@@ -46,14 +46,48 @@
 #define DDR0_WORDS                32U
 #define DDR0_PATTERN              0x504D5500U
 
+/*
+ * Generate DDR traffic through AP3 axi_ap_aon_bus. From the CPU-side C
+ * program, use the internal debug-APB register window (0x4A00_7000) and
+ * program TAR/DRW; TAR holds the DDR byte address and DRW performs the
+ * 32-bit AXI data access. Do not issue DDR addresses with R32/W32 directly.
+ */
+#define AON_AXI_AP_BASE           0x4A007000U
+#define AON_AXI_AP_CSW            (AON_AXI_AP_BASE + 0xD00U)
+#define AON_AXI_AP_TAR            (AON_AXI_AP_BASE + 0xD04U)
+#define AON_AXI_AP_DRW            (AON_AXI_AP_BASE + 0xD0CU)
+#define AON_AXI_AP_IDR            (AON_AXI_AP_BASE + 0xDFCU)
+
+/* MEM-AP CSW: privileged secure data access, 32-bit transfer. */
+#define AON_AXI_AP_CSW_PROT       (1U << 28)
+#define AON_AXI_AP_CSW_SIZE32     2U
+
 /* Small SRAM window checked after the trace path has been flushed. */
 #define AON_SRAM_CHECK_BYTES      0x00000100U
+
+static void aon_axi_ap_config(void)
+{
+    W32(AON_AXI_AP_CSW, AON_AXI_AP_CSW_PROT | AON_AXI_AP_CSW_SIZE32);
+    c_uvm_info("aon axi-ap IDR=0x%08x", R32(AON_AXI_AP_IDR));
+}
+
+static void aon_axi_ap_write(uint32_t addr, uint32_t data)
+{
+    W32(AON_AXI_AP_TAR, addr);
+    W32(AON_AXI_AP_DRW, data);
+}
+
+static uint32_t aon_axi_ap_read(uint32_t addr)
+{
+    W32(AON_AXI_AP_TAR, addr);
+    return R32(AON_AXI_AP_DRW);
+}
 
 static void pmu_trace_config(uint32_t mode)
 {
     c_uvm_info("PMU trace_en reg=0x%08x val=0x%08x",
                AON_PMU_TRACE_EN_REG, AON_PMU_TRACE_EN_MASK);
-    c_uvm_info("PMU mode reg=0x%08x val=0x%08x",
+    c_uvm_info("PMU mode reg=0x%08x id val=0x%08x",
                AON_PMU_MODE_REG, mode);
 
     W32(AON_PMU_TRACE_EN_REG, AON_PMU_TRACE_EN_MASK);
@@ -65,12 +99,11 @@ static void ddr_traffic_generate(void)
     uint32_t word;
 
     for (word = 0U; word < DDR0_WORDS; ++word) {
-        W32((uintptr_t)(DDR0_BASE + (word * 4U)),
-            DDR0_PATTERN + word);
+        aon_axi_ap_write(DDR0_BASE + (word * 4U), DDR0_PATTERN + word);
     }
 
     for (word = 0U; word < DDR0_WORDS; ++word) {
-        (void)R32((uintptr_t)(DDR0_BASE + (word * 4U)));
+        (void)aon_axi_ap_read(DDR0_BASE + (word * 4U));
     }
 }
 
@@ -114,9 +147,11 @@ CPU_TEST_START
     pmu_trace_config(AON_PMU_MODE_DEFAULT);
 
     /*
-     * Generate AXI traffic on the AON-to-DDR path. Writes and reads are both
-     * performed because the PMU monitors read and write bus performance.
+     * Configure AP3 axi_ap_aon_bus before generating DDR traffic. Writes and
+     * reads are both performed because the PMU monitors read and write bus
+     * performance.
      */
+    aon_axi_ap_config();
     ddr_traffic_generate();
 
     /* Drain any packet held by the upstream buffer, ETF, or ETR. */
