@@ -21,7 +21,7 @@
 /* TODO: fill these offsets/bit from the PMU register map before running. */
 #define AON_PMU_TRACE_EN_OFF      0x00000004U
 #define AON_PMU_MODE_OFF          0x0000001CU
-#define AON_PMU_TRACE_EN_MASK     0x00000040U
+#define AON_PMU_TRACE_EN_MASK     0x00000041U
 #define AON_PMU_MODE_DEFAULT      0x00000005U
 
 #define AON_PMU_TRACE_EN_REG \
@@ -164,7 +164,7 @@ CPU_TEST_START
     ddr_traffic_generate();
 
     /* Drain any packet held by the upstream buffer, ETF, or ETR. */
-    aon_trace_flush();
+    //aon_trace_flush();
     delay_us(1);
 
     /*
