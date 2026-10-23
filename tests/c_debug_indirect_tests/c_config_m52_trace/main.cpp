@@ -66,8 +66,8 @@
 #define ETM_RSCTLR2_COUNTER0_AT_ZERO 0x00020000U
 #define ETM_EVENT0_SELECT_RS2        0x00000002U
 #define ETM_EVENT0_INSTEN            0x00000001U
-#define ETM_EVENT1R_LPOVERRIDE       0x00001000U
-#define ETM_EVENT1R_VAL              (ETM_EVENT1R_LPOVERRIDE | ETM_EVENT0_INSTEN)
+#define ETM_EVENT1R_ATB              0x00000800U
+#define ETM_EVENT1R_VAL              (ETM_EVENT1R_ATB | ETM_EVENT0_INSTEN)
 #define ETM_VIEWINST_EVENT0_ACTIVE   0x00010200U
 
 static void m52_check_reg(const char *name,
@@ -225,7 +225,7 @@ CPU_TEST_START
     m52_check_reg("ETM_TRCEVENTCTL0R", m52_ahbap_read(M52_ETM_TRCEVENTCTL0R),
                   ETM_EVENT0_SELECT_RS2, 0x000000FFU);
     m52_check_reg("ETM_TRCEVENTCTL1R", m52_ahbap_read(M52_ETM_TRCEVENTCTL1R),
-                  ETM_EVENT1R_VAL, 0x00001001U);
+                  ETM_EVENT1R_VAL, 0x00000801U);
     m52_check_reg("ETM_TRCRSCTLR2", m52_ahbap_read(M52_ETM_TRCRSCTLR2),
                   ETM_RSCTLR2_COUNTER0_AT_ZERO, 0x000300FFU);
     m52_check_reg("ETM_TRCCNTRLDVR0", m52_ahbap_read(M52_ETM_TRCCNTRLDVR0),
@@ -265,3 +265,4 @@ CPU_TEST_START
     c_uvm_info("%s", "m52 itm/etm trace enabled via AHB-AP");
     C_PASS();
 CPU_TEST_END
+
