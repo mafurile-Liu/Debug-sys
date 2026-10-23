@@ -54,7 +54,8 @@
 #define M52_ETM_TRCPDCR     (M52_ETM_BASE + 0x310U)
 #define M52_ETM_TRCPDSR     (M52_ETM_BASE + 0x314U)
 
-#define ETM_TRCSTATR_IDLE   (1U << 0)
+#define ETM_TRCSTATR_IDLE    (1U << 0)
+#define ETM_TRCSTATR_PMSTABLE (1U << 1)
 #define ETM_TRCPDCR_PU      (1U << 3)
 #define ETM_TRCPDSR_POWER   (1U << 0)
 
@@ -168,6 +169,25 @@ CPU_TEST_START
                   ETM_TRCPDSR_POWER, ETM_TRCPDSR_POWER);
 
     m52_ahbap_write(M52_ETM_TRCPRGCTLR, 0U);
+
+    /*
+     * The ETM programmers model must be stable before any trace registers are
+     * programmed. Otherwise some register writes can be ignored.
+     */
+    {
+        uint32_t etm_status = 0U;
+        for (unsigned int i = 0U; i < 100U; ++i) {
+            etm_status = m52_ahbap_read(M52_ETM_TRCSTATR);
+            if ((etm_status & ETM_TRCSTATR_PMSTABLE) != 0U) {
+                break;
+            }
+        }
+
+        if ((etm_status & ETM_TRCSTATR_PMSTABLE) == 0U) {
+            c_uvm_error("ETM TRCSTATR.PMSTABLE timeout, status=0x%08x",
+                        etm_status);
+        }
+    }
     {
         uint32_t etm_status = 0U;
         for (unsigned int i = 0U; i < 100U; ++i) {
