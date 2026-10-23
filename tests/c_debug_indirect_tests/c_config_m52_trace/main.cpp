@@ -83,10 +83,37 @@ static void m52_check_reg(const char *name,
     }
 }
 
+#define AON_SRAM_CHECK_BYTES      0x00000100U
+
+static void aon_sram_trace_data_check(void)
+{
+    uint32_t off;
+    uint32_t got;
+
+    for (off = 0U; off < AON_SRAM_CHECK_BYTES; off += 4U) {
+        got = R32((uintptr_t)(AON_SRAM_BASE_ADDR + off));
+        if (got != 0U) {
+            c_uvm_info("AON SRAM trace check: first nonzero @0x%08x=0x%08x",
+                       AON_SRAM_BASE_ADDR + off, got);
+            return;
+        }
+    }
+
+    c_uvm_error("%s", "AON SRAM trace check: no nonzero data found");
+}
+
 CPU_TEST_START
     OPEN_DEBUG_CRG();
 
     // --------------- clks cfg finish ---------------- //
+
+    /*
+     * Clear only the checked window before configuring the trace path so the
+     * final SRAM check cannot be fooled by stale trace data.
+     */
+    for (uint32_t off = 0U; off < AON_SRAM_CHECK_BYTES; off += 4U) {
+        W32((uintptr_t)(AON_SRAM_BASE_ADDR + off), 0U);
+    }
 
     /* Route the trace path so M52 ITM/ETM output has somewhere to go:
      * funnel mask 0x07 = ports 0,1,2 (crash_dump + M52 ITM + M52 ETM -
@@ -197,6 +224,7 @@ CPU_TEST_START
     }
 
     aon_trace_flush();
+    delay_us(1);
 
     {
         uint32_t stim_status = m52_ahbap_read(M52_ITM_STIM(0));
@@ -207,6 +235,12 @@ CPU_TEST_START
                         stim_status);
         }
     }
+
+    /*
+     * Weak sanity check only. Once the M52 ITM/ETM packet layout is decoded,
+     * replace this with an explicit packet/payload check.
+     */
+    aon_sram_trace_data_check();
 
     c_uvm_info("%s", "m52 itm/etm trace enabled via AHB-AP");
     C_PASS();
