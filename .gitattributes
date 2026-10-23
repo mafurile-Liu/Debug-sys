@@ -1,0 +1,14 @@
+# Enforce LF for source/config text files.
+# This prevents CRLF from showing up as ^M on Linux (TOT).
+*.cpp text eol=lf
+*.hpp text eol=lf
+*.c   text eol=lf
+*.h   text eol=lf
+*.sv  text eol=lf
+*.svh text eol=lf
+*.f   text eol=lf
+*.tcl text eol=lf
+*.mk  text eol=lf
+*.py  text eol=lf
+*.md  text eol=lf
+*.sh  text eol=lf
