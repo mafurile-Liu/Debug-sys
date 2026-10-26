@@ -32,6 +32,12 @@
 #define M52_ETM_TRCTRACEIDR    (M52_ETM_BASE + 0x040U)
 #define M52_ETM_TRCVICTLR      (M52_ETM_BASE + 0x080U)
 #define M52_ETM_TRCVIPCSSCTLR  (M52_ETM_BASE + 0x08CU)
+#define M52_ETM_TRCRSR         (M52_ETM_BASE + 0x028U)
+#define M52_ETM_TRCITCTRL      (M52_ETM_BASE + 0x0F4U)
+#define M52_ETM_TRCIDR0        (M52_ETM_BASE + 0x180U)
+#define M52_ETM_TRCIDR3        (M52_ETM_BASE + 0x1C8U)
+#define M52_ETM_TRCIDR4        (M52_ETM_BASE + 0x1CCU)
+#define M52_ETM_TRCIDR5        (M52_ETM_BASE + 0x1D0U)
 #define M52_ETM_TRCPDCR        (M52_ETM_BASE + 0x310U)
 #define M52_ETM_TRCPDSR        (M52_ETM_BASE + 0x314U)
 #define M52_ETM_TRCLAR         (M52_ETM_BASE + 0xFB0U)
@@ -47,14 +53,11 @@
 #define ETM_TRCPDSR_POWER      (1U << 0)
 
 /*
- * ETM-M52 ViewInst:
- *   bit[19] Handler mode
- *   bit[16] Thread mode
- *   bit[9]  SSSTATUS = started
- *   [7:0]   EVENT    = 1 (fixed TRUE in the M52 resource map)
+ * Fixed TRUE ViewInst. Do not set PE-mode filters or LPOVERRIDE for this
+ * smoke test; the M52 COP runs in Thread mode, and normal instruction trace
+ * should be active whenever PRGCTLR.EN=1.
  */
-#define ETM_VIEWINST_ACTIVE    0x00090A01U /* Thread+Handler, TRCERR, SSSTATUS, fixed TRUE */
-#define ETM_EVENT1R_LPOVERRIDE 0x00001000U
+#define ETM_VIEWINST_ACTIVE    0x00000201U
 
 /* ETM is connected to AON funnel slave port 2. */
 #define AON_M52_ETM_FUNNEL_PORT 2U
@@ -208,6 +211,10 @@ CPU_TEST_START
         if ((lsr & 0x2U) != 0U) {
             c_uvm_error("ETM software lock is still set, LSR=0x%08x", lsr);
         }
+
+        m52_check_reg("ETM_TRCITCTRL",
+                      m52_ahbap_read(M52_ETM_TRCITCTRL),
+                      0x00000000U, 0x00000001U);
     }
 
     /* Disable ETM and wait until the programmers model is stable/idle. */
@@ -247,9 +254,14 @@ CPU_TEST_START
      * Keep this case simple: use normal instruction trace with ViewInst
      * always active. No event/counter configuration is used here.
      */
-    m52_ahbap_write(M52_ETM_TRCCONFIGR, 0x00001801U);
+    /*
+     * Minimal normal trace. TRCCONFIGR bit0 is not an enable in standard
+     * ETMv4, so avoid it here; timestamp/return-stack optimizations are also
+     * unnecessary for the first ETM-only smoke run.
+     */
+    m52_ahbap_write(M52_ETM_TRCCONFIGR, 0x00000000U);
     m52_ahbap_write(M52_ETM_TRCEVENTCTL0R, 0x00000000U);
-    m52_ahbap_write(M52_ETM_TRCEVENTCTL1R, ETM_EVENT1R_LPOVERRIDE);
+    m52_ahbap_write(M52_ETM_TRCEVENTCTL1R, 0x00000000U);
     m52_ahbap_write(M52_ETM_TRCSTALLCTLR, 0x00000000U);
     m52_ahbap_write(M52_ETM_TRCTSCTLR, 0x00000000U);
     m52_ahbap_write(M52_ETM_TRCTRACEIDR, 0x00000002U);
@@ -265,8 +277,12 @@ CPU_TEST_START
     m52_ahbap_write(M52_ETM_TRCVICTLR, ETM_VIEWINST_ACTIVE);
     m52_ahbap_write(M52_ETM_TRCPRGCTLR, 1U);
 
+    /*
+     * TRCCONFIGR may return bit0 as a hardware-specific/RES1 value even when
+     * zero is written. Check only the fields actually programmed above.
+     */
     m52_check_reg("ETM_TRCCONFIGR", m52_ahbap_read(M52_ETM_TRCCONFIGR),
-                  0x00001801U, 0x00001801U);
+                  0x00000000U, 0x00001800U);
     m52_check_reg("ETM_TRCEVENTCTL0R",
                   m52_ahbap_read(M52_ETM_TRCEVENTCTL0R),
                   0x00000000U, 0x00000000U);
@@ -283,7 +299,7 @@ CPU_TEST_START
         c_uvm_info("ETM trace ID while enabled=0x%08x", trace_id);
     }
     m52_check_reg("ETM_TRCVICTLR", m52_ahbap_read(M52_ETM_TRCVICTLR),
-                  ETM_VIEWINST_ACTIVE, ETM_VIEWINST_ACTIVE);
+                  ETM_VIEWINST_ACTIVE, 0x00000201U);
     m52_check_reg("ETM_TRCVIPCSSCTLR",
                   m52_ahbap_read(M52_ETM_TRCVIPCSSCTLR),
                   0x00000000U, 0x00000000U);
@@ -296,8 +312,23 @@ CPU_TEST_START
      */
     delay_us(100);
     {
+        uint32_t idr0 = m52_ahbap_read(M52_ETM_TRCIDR0);
+        uint32_t idr3 = m52_ahbap_read(M52_ETM_TRCIDR3);
+        uint32_t idr4 = m52_ahbap_read(M52_ETM_TRCIDR4);
+        uint32_t idr5 = m52_ahbap_read(M52_ETM_TRCIDR5);
+        c_uvm_info("ETM features: IDR0=0x%08x IDR3=0x%08x IDR4=0x%08x IDR5=0x%08x",
+                   idr0, idr3, idr4, idr5);
+    }
+    {
         uint32_t etm_status = m52_ahbap_read(M52_ETM_TRCSTATR);
-        c_uvm_info("ETM status after enable=0x%08x", etm_status);
+        uint32_t rsr = m52_ahbap_read(M52_ETM_TRCRSR);
+        c_uvm_info("ETM after enable: TRCSTATR=0x%08x TRCRSR=0x%08x",
+                   etm_status, rsr);
+
+        if ((etm_status & ETM_TRCSTATR_IDLE) != 0U) {
+            c_uvm_error("ETM is still IDLE after enable, TRCSTATR=0x%08x",
+                        etm_status);
+        }
     }
 
     /*
