@@ -30,6 +30,9 @@ class debug_sys_virtual_sequencer extends
   svt_atb_system_sequencer atb_sequencer;
   debug_sys_reg_block regmodel;
 
+  // AON ECT sequencer
+  ect_aon_sequencer ect_sequencer;
+
   `uvm_component_utils(debug_sys_virtual_sequencer)
 
   function new(string name = "debug_sys_virtual_sequencer",

@@ -38,6 +38,7 @@
 +incdir+tb/env/jtag
 +incdir+tb/env/apb
 +incdir+tb/env/atb
++incdir+tb/env/ect
 
 # Test package directory
 +incdir+tests

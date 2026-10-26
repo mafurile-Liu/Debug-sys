@@ -43,6 +43,10 @@
 
 // Interfaces
 `include "debug_reset_if.sv"
+`include "interfaces/ect_aon_if.sv"
+
+// AON ECT Agent Package
+`include "env/ect/ect_aon_pkg.sv"
 
 // All loopback DUT modules
 `include "debug_jtag_loopback.sv"
@@ -88,6 +92,10 @@ module debug_port_top;
 
   // Debug reset interface
   debug_reset_if reset_if(.clk(pclk));
+
+  // AON ECT event/channel interface.  No DUT hookup in standalone debug-port
+  // top yet; this keeps the agent integration and config_db path ready.
+  ect_aon_if ect_if(.clk(pclk), .rst_n(preset_n));
 
   // ==========================================
   // JTAG interfaces + loopback
@@ -161,6 +169,10 @@ module debug_port_top;
     // Reset interface
     uvm_config_db#(virtual debug_reset_if.seq_mp)::set(
       null, "uvm_test_top.env.vseqr", "reset_vif", reset_if.seq_mp);
+
+    // AON ECT agent/scoreboard interface
+    uvm_config_db#(virtual ect_aon_if)::set(
+      null, "uvm_test_top.env", "ect_vif", ect_if);
 
     // JTAG interfaces (to port_env.*)
     uvm_config_db#(virtual svt_jtag_if)::set(

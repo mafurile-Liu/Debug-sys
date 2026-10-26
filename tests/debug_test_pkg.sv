@@ -16,6 +16,7 @@ package debug_test_pkg;
   `include "debug_apb_reg_test.sv"
   `include "debug_apb_scenario_test.sv"
   `include "debug_atb_loopback_test.sv"
+  `include "debug_ect_smoke_test.sv"
   `include "debug_dp_idcode_test.sv"
   `include "debug_dap_reg_access_test.sv"
 `include "debug_dap_apb_access_test.sv"

@@ -4,6 +4,7 @@
 package debug_env_pkg;
   import uvm_pkg::*;
   import debug_seq_pkg::*;
+  import ect_aon_pkg::*;
 
   `include "uvm_macros.svh"
 

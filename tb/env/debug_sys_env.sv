@@ -35,6 +35,11 @@ class debug_sys_env extends uvm_env;
   debug_apb_env  apb_env;    // APB
   debug_atb_env  atb_env;    // ATB
 
+  // AON ECT verification components.
+  ect_aon_cfg        ect_cfg;
+  ect_aon_agent      ect_agent;
+  ect_aon_scoreboard ect_scoreboard;
+
   // 寄存器模型 (从 apb_env 引出, 方便 vseqr 使用)
   debug_sys_reg_block regmodel;
 
@@ -78,6 +83,24 @@ class debug_sys_env extends uvm_env;
     if (cfg.enable_atb) begin
       atb_env = debug_atb_env::type_id::create("atb_env", this);
       `uvm_info("ENV", "debug_atb_env created", UVM_MEDIUM)
+    end
+
+    // AON ECT agent/scoreboard
+    if (cfg.enable_ect) begin
+      virtual ect_aon_if ect_vif;
+
+      if (!uvm_config_db#(virtual ect_aon_if)::get(this, "", "ect_vif", ect_vif)) begin
+        `uvm_fatal("ENV", "AON ECT interface not found in config_db")
+      end
+
+      ect_cfg       = ect_aon_cfg::type_id::create("ect_cfg");
+      ect_cfg.vif   = ect_vif;
+      ect_agent     = ect_aon_agent::type_id::create("ect_agent", this);
+      ect_scoreboard = ect_aon_scoreboard::type_id::create("ect_scoreboard", this);
+
+      uvm_config_db#(ect_aon_cfg)::set(this, "ect_agent", "cfg", ect_cfg);
+      uvm_config_db#(ect_aon_cfg)::set(this, "ect_scoreboard", "cfg", ect_cfg);
+      `uvm_info("ENV", "AON ECT agent/scoreboard created", UVM_MEDIUM)
     end
 
     // ==========================================
@@ -158,6 +181,17 @@ class debug_sys_env extends uvm_env;
       atb_env.atb_env.slave[0].monitor.item_observed_port.connect(
         scoreboard.atb_actual);
       `uvm_info("ENV", "ATB monitors connected to scoreboard", UVM_MEDIUM)
+    end
+
+    // AON ECT monitor -> scoreboard
+    if (cfg.enable_ect && ect_agent != null && ect_scoreboard != null) begin
+      ect_agent.monitor.ap.connect(ect_scoreboard.analysis_export);
+      `uvm_info("ENV", "AON ECT monitor connected to scoreboard", UVM_MEDIUM)
+    end
+
+    // Expose the ECT sequencer to virtual sequences.
+    if (cfg.enable_ect && ect_agent != null) begin
+      vseqr.ect_sequencer = ect_agent.sequencer;
     end
 
     // ==========================================
