@@ -15,3 +15,6 @@ sim_out/
 
 # VIP reference (contains proprietary paths, do not commit)
 VIP_REFERENCE.md
+
+# Nested repo (own remote, updated separately - never embed into this repo)
+openocd-sim/

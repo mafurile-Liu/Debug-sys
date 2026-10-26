@@ -40,7 +40,7 @@ def is_expected_vendor_macro(diagnostic: object) -> bool:
 
 
 def parse(path: Path, mode: str) -> list[str]:
-    source = without_includes(path.read_text(encoding="utf-8"))
+    source = without_includes(path.read_text(encoding="utf-8-sig"))
     source = f"`define DEBUG_PORT_{mode.upper()} 1\n" + source
     tree = pyslang.syntax.SyntaxTree.fromText(
         source,
