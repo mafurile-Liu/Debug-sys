@@ -32,7 +32,12 @@
 #define M52_ETM_TRCTRACEIDR    (M52_ETM_BASE + 0x200U)
 #define M52_ETM_TRCVICTLR      (M52_ETM_BASE + 0x080U)
 #define M52_ETM_TRCPDCR        (M52_ETM_BASE + 0x310U)
-#define M52_ETM_TRCPDSR        (M52_ETM_BASE + 0x314U)
+#define M52_ETM_TRCLAR         (M52_ETM_BASE + 0xFB0U)
+#define M52_ETM_TRCLSR         (M52_ETM_BASE + 0xFB4U)
+#define M52_ETM_TRCDEVARCH     (M52_ETM_BASE + 0xFBCU)
+#define M52_ETM_TRCAUTHSTATUS  (M52_ETM_BASE + 0xFB8U)
+#define M52_ETM_TRCIDR1        (M52_ETM_BASE + 0x1E4U)
+#define M52_ETM_TRCDEVTYPE     (M52_ETM_BASE + 0xFCCU)
 
 #define ETM_TRCSTATR_IDLE      (1U << 0)
 #define ETM_TRCSTATR_PMSTABLE  (1U << 1)
@@ -98,6 +103,29 @@ static void m52_check_reg(const char *name,
     }
 }
 
+static void m52_etm_identity_check(void)
+{
+    uint32_t devarch = m52_ahbap_read(M52_ETM_TRCDEVARCH);
+    uint32_t devtype = m52_ahbap_read(M52_ETM_TRCDEVTYPE);
+    uint32_t idr1 = m52_ahbap_read(M52_ETM_TRCIDR1);
+    uint32_t auth = m52_ahbap_read(M52_ETM_TRCAUTHSTATUS);
+
+    c_uvm_info(
+        "ETM identity: DEVARCH=0x%08x DEVTYPE=0x%08x IDR1=0x%08x AUTH=0x%08x",
+        devarch, devtype, idr1, auth);
+
+    if (devarch != 0x47754A13U) {
+        c_uvm_error("ETM DEVARCH mismatch: got=0x%08x want=0x47754A13",
+                    devarch);
+    }
+    if (devtype != 0x00000013U) {
+        c_uvm_error("ETM DEVTYPE mismatch: got=0x%08x want=0x00000013",
+                    devtype);
+    }
+    if (idr1 != 0x4100F454U) {
+        c_uvm_error("ETM IDR1 mismatch: got=0x%08x want=0x4100F454", idr1);
+    }
+}
 static void aon_sram_trace_data_check(void)
 {
     uint32_t off;
@@ -150,11 +178,40 @@ CPU_TEST_START
     m52_ahbap_write(M52_ETM_TRCPDCR, ETM_TRCPDCR_PU);
     m52_check_reg("ETM_TRCPDCR", m52_ahbap_read(M52_ETM_TRCPDCR),
                   ETM_TRCPDCR_PU, ETM_TRCPDCR_PU);
-    m52_check_reg("ETM_TRCPDSR", m52_ahbap_read(M52_ETM_TRCPDSR),
-                  ETM_TRCPDSR_POWER, ETM_TRCPDSR_POWER);
+
+    {
+        uint32_t pdsr = 0U;
+        for (unsigned int i = 0U; i < 100U; ++i) {
+            pdsr = m52_ahbap_read(M52_ETM_TRCPDSR);
+            if ((pdsr & ETM_TRCPDSR_POWER) != 0U) {
+                break;
+            }
+        }
+
+        if ((pdsr & ETM_TRCPDSR_POWER) == 0U) {
+            c_uvm_error("ETM TRCPDSR.POWER timeout, status=0x%08x", pdsr);
+        } else {
+            c_uvm_info("ETM TRCPDSR=0x%08x", pdsr);
+        }
+    }
+    m52_etm_identity_check();
+
+    {
+        uint32_t lsr = m52_ahbap_read(M52_ETM_TRCLSR);
+        c_uvm_info("ETM TRCLSR before unlock=0x%08x", lsr);
+        m52_ahbap_write(M52_ETM_TRCLAR, 0xC5ACCE55U);
+        lsr = m52_ahbap_read(M52_ETM_TRCLSR);
+        c_uvm_info("ETM TRCLSR after unlock=0x%08x", lsr);
+        if ((lsr & 0x2U) != 0U) {
+            c_uvm_error("ETM software lock is still set, LSR=0x%08x", lsr);
+        }
+    }
 
     /* Disable ETM and wait until the programmers model is stable/idle. */
     m52_ahbap_write(M52_ETM_TRCPRGCTLR, 0U);
+    m52_check_reg("ETM_TRCPRGCTLR(disabled)",
+                  m52_ahbap_read(M52_ETM_TRCPRGCTLR),
+                  0x00000000U, 0x00000001U);
     {
         uint32_t etm_status = 0U;
 
