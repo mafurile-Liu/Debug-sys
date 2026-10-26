@@ -31,6 +31,7 @@
 #define M52_ETM_TRCTSCTLR      (M52_ETM_BASE + 0x030U)
 #define M52_ETM_TRCTRACEIDR    (M52_ETM_BASE + 0x040U)
 #define M52_ETM_TRCVICTLR      (M52_ETM_BASE + 0x080U)
+#define M52_ETM_TRCVIPCSSCTLR  (M52_ETM_BASE + 0x08CU)
 #define M52_ETM_TRCPDCR        (M52_ETM_BASE + 0x310U)
 #define M52_ETM_TRCPDSR        (M52_ETM_BASE + 0x314U)
 #define M52_ETM_TRCLAR         (M52_ETM_BASE + 0xFB0U)
@@ -52,7 +53,8 @@
  *   bit[9]  SSSTATUS = started
  *   [7:0]   EVENT    = 1 (fixed TRUE in the M52 resource map)
  */
-#define ETM_VIEWINST_ACTIVE    0x00090201U
+#define ETM_VIEWINST_ACTIVE    0x00090A01U /* Thread+Handler, TRCERR, SSSTATUS, fixed TRUE */
+#define ETM_EVENT1R_LPOVERRIDE 0x00001000U
 
 /* ETM is connected to AON funnel slave port 2. */
 #define AON_M52_ETM_FUNNEL_PORT 2U
@@ -247,7 +249,7 @@ CPU_TEST_START
      */
     m52_ahbap_write(M52_ETM_TRCCONFIGR, 0x00001801U);
     m52_ahbap_write(M52_ETM_TRCEVENTCTL0R, 0x00000000U);
-    m52_ahbap_write(M52_ETM_TRCEVENTCTL1R, 0x00000000U);
+    m52_ahbap_write(M52_ETM_TRCEVENTCTL1R, ETM_EVENT1R_LPOVERRIDE);
     m52_ahbap_write(M52_ETM_TRCSTALLCTLR, 0x00000000U);
     m52_ahbap_write(M52_ETM_TRCTSCTLR, 0x00000000U);
     m52_ahbap_write(M52_ETM_TRCTRACEIDR, 0x00000002U);
@@ -259,6 +261,7 @@ CPU_TEST_START
                         trace_id);
         }
     }
+    m52_ahbap_write(M52_ETM_TRCVIPCSSCTLR, 0x00000000U);
     m52_ahbap_write(M52_ETM_TRCVICTLR, ETM_VIEWINST_ACTIVE);
     m52_ahbap_write(M52_ETM_TRCPRGCTLR, 1U);
 
@@ -281,6 +284,9 @@ CPU_TEST_START
     }
     m52_check_reg("ETM_TRCVICTLR", m52_ahbap_read(M52_ETM_TRCVICTLR),
                   ETM_VIEWINST_ACTIVE, ETM_VIEWINST_ACTIVE);
+    m52_check_reg("ETM_TRCVIPCSSCTLR",
+                  m52_ahbap_read(M52_ETM_TRCVIPCSSCTLR),
+                  0x00000000U, 0x00000000U);
     m52_check_reg("ETM_TRCPRGCTLR", m52_ahbap_read(M52_ETM_TRCPRGCTLR),
                   0x00000001U, 0x00000001U);
 
