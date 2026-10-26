@@ -69,7 +69,7 @@
 #define ETM_EVENT1R_ATB              0x00000800U
 #define ETM_EVENT1R_LPOVERRIDE       0x00001000U
 #define ETM_EVENT1R_VAL              (ETM_EVENT1R_LPOVERRIDE | ETM_EVENT1R_ATB | ETM_EVENT0_INSTEN)
-#define ETM_VIEWINST_EVENT0_ACTIVE   0x00090A00U /* Thread+Handler, TRCERR, SSSTATUS, EVENT0 */
+#define ETM_VIEWINST_ACTIVE   0x00090A01U /* Thread+Handler, TRCERR, SSSTATUS, fixed TRUE */
 
 static void m52_check_reg(const char *name,
                           uint32_t got,
@@ -218,7 +218,7 @@ CPU_TEST_START
     m52_ahbap_write(M52_ETM_TRCTRACEIDR, 0x00000002U);
     m52_ahbap_write(M52_ETM_TRCEVENTCTL0R, ETM_EVENT0_SELECT_RS2);
     m52_ahbap_write(M52_ETM_TRCEVENTCTL1R, ETM_EVENT1R_VAL);
-    m52_ahbap_write(M52_ETM_TRCVICTLR, ETM_VIEWINST_EVENT0_ACTIVE);
+    m52_ahbap_write(M52_ETM_TRCVICTLR, ETM_VIEWINST_ACTIVE);
     m52_ahbap_write(M52_ETM_TRCPRGCTLR, 0x00000001U);
 
     m52_check_reg("ETM_TRCCONFIGR", m52_ahbap_read(M52_ETM_TRCCONFIGR),
@@ -232,7 +232,7 @@ CPU_TEST_START
     m52_check_reg("ETM_TRCCNTRLDVR0", m52_ahbap_read(M52_ETM_TRCCNTRLDVR0),
                   0x00000010U, 0x0000FFFFU);
     m52_check_reg("ETM_TRCVICTLR", m52_ahbap_read(M52_ETM_TRCVICTLR),
-                  ETM_VIEWINST_EVENT0_ACTIVE, 0x00090A00U);
+                  ETM_VIEWINST_ACTIVE, 0x00090A01U);
     m52_check_reg("ETM_TRCPRGCTLR", m52_ahbap_read(M52_ETM_TRCPRGCTLR),
                   0x00000001U, 0x00000001U);
 
