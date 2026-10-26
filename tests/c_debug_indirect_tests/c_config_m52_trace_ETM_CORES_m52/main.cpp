@@ -291,6 +291,16 @@ CPU_TEST_START
                   0x00000001U, 0x00000001U);
 
     /*
+     * Give the M52 polling loop time to run while ETM is enabled. This keeps
+     * the M52 COP code itself minimal while still generating enough trace.
+     */
+    delay_us(100);
+    {
+        uint32_t etm_status = m52_ahbap_read(M52_ETM_TRCSTATR);
+        c_uvm_info("ETM status after enable=0x%08x", etm_status);
+    }
+
+    /*
      * Let the minimal M52 COP code run while ETM is active, then flush the
      * ETM-only trace path.
      */
