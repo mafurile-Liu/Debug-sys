@@ -1,6 +1,6 @@
 # test.cfg.mk - c_config_m52_trace_ETM_CORES_m52
 UVM_TESTNAME_PLUS := +UVM_TESTNAME=aon_normal_test
-CORES := M52
+CORES := A720 M52
 M52_DDR_MODE := 1
 #M52_SRAM_MODE := 1
 

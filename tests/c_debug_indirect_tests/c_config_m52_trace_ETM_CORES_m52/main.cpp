@@ -1,11 +1,12 @@
 /*
  * c_config_m52_trace_ETM_CORES_m52/main.cpp
  *
- * M52-hosted ETM-only trace smoke case.
+ * ACPU/M52 co-executed ETM-only trace smoke case.
  *
- * This case intentionally does not program ITM. It configures the M52 ETM
- * through the M52 AHB-AP debug window and uses the AON trace tree as the
- * trace sink. The final AON SRAM check is therefore an ETM-only check.
+ * ACPU configures the AON trace path and the M52 ETM. The M52 COP section
+ * waits for ACPU, runs a minimal instruction burst, and reports completion.
+ * This case intentionally does not program ITM, so the final AON SRAM check
+ * is an ETM-only check.
  */
 
 #include <stdint.h>
@@ -34,6 +35,7 @@
 #define M52_ETM_TRCPDSR        (M52_ETM_BASE + 0x314U)
 
 #define ETM_TRCSTATR_IDLE      (1U << 0)
+#define ETM_TRCSTATR_PMSTABLE  (1U << 1)
 #define ETM_TRCPDCR_PU         (1U << 3)
 #define ETM_TRCPDSR_POWER      (1U << 0)
 
@@ -53,6 +55,34 @@
 #define AON_TRACE_BUF_ADDR     AON_SRAM_BASE_ADDR
 #define AON_TRACE_BUF_SIZE     0x00010000U
 #define AON_SRAM_CHECK_BYTES   0x00000100U
+
+/*
+ * Put the CPU<->M52 handshake just outside the ETR buffer so the handshake
+ * writes cannot be mistaken for trace data in the checked SRAM window.
+ */
+#define AON_M52_START_FLAG_ADDR (AON_TRACE_BUF_ADDR + AON_TRACE_BUF_SIZE)
+#define AON_M52_DONE_FLAG_ADDR  (AON_TRACE_BUF_ADDR + AON_TRACE_BUF_SIZE + 4U)
+#define AON_M52_START_FLAG      0xC0DE0001U
+#define AON_M52_DONE_FLAG       0xC0DE0002U
+
+COP_TEST_START
+    /*
+     * Keep the M52 side minimal: wait until ACPU has enabled ETM, execute a
+     * tiny bounded instruction burst, then report completion.
+     */
+    while (R32((uintptr_t)AON_M52_START_FLAG_ADDR) != AON_M52_START_FLAG) {
+    }
+
+    {
+        volatile uint32_t spin = 0U;
+        for (uint32_t i = 0U; i < 16U; ++i) {
+            spin += i;
+        }
+    }
+
+    W32((uintptr_t)AON_M52_DONE_FLAG_ADDR, AON_M52_DONE_FLAG);
+    COP_C_PASS();
+COP_TEST_END
 
 static void m52_check_reg(const char *name,
                           uint32_t got,
@@ -85,18 +115,21 @@ static void aon_sram_trace_data_check(void)
     c_uvm_error("%s", "AON SRAM ETM check: no nonzero data found");
 }
 
-COP_TEST_START
+CPU_TEST_START
     OPEN_DEBUG_CRG_SMALL();
 
     // --------------- clks cfg finish ---------------- //
 
     /*
-     * Clear the checked SRAM window first so the final check cannot be fooled
-     * by stale trace data. Only the ETM funnel port is enabled in this case.
+     * Clear the checked SRAM window and both handshake flags first. This
+     * prevents stale flags from letting M52 run before ETM is enabled, and
+     * keeps the final SRAM check from being fooled by stale trace data.
      */
     for (uint32_t off = 0U; off < AON_SRAM_CHECK_BYTES; off += 4U) {
         W32((uintptr_t)(AON_TRACE_BUF_ADDR + off), 0U);
     }
+    W32((uintptr_t)AON_M52_START_FLAG_ADDR, 0U);
+    W32((uintptr_t)AON_M52_DONE_FLAG_ADDR, 0U);
 
     aon_trace_init(TRACE_MODE_ETF_CATU_BYPASS,
                    AON_M52_ETM_FUNNEL_MASK,
@@ -120,10 +153,23 @@ COP_TEST_START
     m52_check_reg("ETM_TRCPDSR", m52_ahbap_read(M52_ETM_TRCPDSR),
                   ETM_TRCPDSR_POWER, ETM_TRCPDSR_POWER);
 
-    /* Disable ETM and wait until the programmers model is idle. */
+    /* Disable ETM and wait until the programmers model is stable/idle. */
     m52_ahbap_write(M52_ETM_TRCPRGCTLR, 0U);
     {
         uint32_t etm_status = 0U;
+
+        for (unsigned int i = 0U; i < 100U; ++i) {
+            etm_status = m52_ahbap_read(M52_ETM_TRCSTATR);
+            if ((etm_status & ETM_TRCSTATR_PMSTABLE) != 0U) {
+                break;
+            }
+        }
+
+        if ((etm_status & ETM_TRCSTATR_PMSTABLE) == 0U) {
+            c_uvm_error("ETM TRCSTATR.PMSTABLE timeout, status=0x%08x",
+                        etm_status);
+        }
+
         for (unsigned int i = 0U; i < 100U; ++i) {
             etm_status = m52_ahbap_read(M52_ETM_TRCSTATR);
             if ((etm_status & ETM_TRCSTATR_IDLE) != 0U) {
@@ -171,16 +217,24 @@ COP_TEST_START
                   0x00000001U, 0x00000001U);
 
     /*
-     * Generate some instruction activity after ETM is enabled. This is not
-     * ITM traffic; it is only used to ensure the ETM instruction trace has
-     * data before flushing the AON trace path.
+     * Let the minimal M52 COP code run while ETM is active, then flush the
+     * ETM-only trace path.
      */
+    W32((uintptr_t)AON_M52_START_FLAG_ADDR, AON_M52_START_FLAG);
     {
-        volatile uint32_t spin = 0U;
-        for (uint32_t i = 0U; i < 64U; ++i) {
-            spin += i;
+        uint32_t done = 0U;
+        uint32_t timeout = 0U;
+
+        for (timeout = 0U; timeout < 100000U; ++timeout) {
+            done = R32((uintptr_t)AON_M52_DONE_FLAG_ADDR);
+            if (done == AON_M52_DONE_FLAG) {
+                break;
+            }
         }
-        c_uvm_info("ETM activity spin done, value=0x%08x", spin);
+
+        if (done != AON_M52_DONE_FLAG) {
+            c_uvm_error("%s", "M52 ETM activity did not complete");
+        }
     }
 
     aon_trace_flush();
@@ -194,4 +248,4 @@ COP_TEST_START
 
     c_uvm_info("%s", "m52 ETM-only trace enabled via AHB-AP");
     C_PASS();
-COP_TEST_END
+CPU_TEST_END
