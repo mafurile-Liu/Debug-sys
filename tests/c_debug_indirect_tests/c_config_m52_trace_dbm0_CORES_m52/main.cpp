@@ -1,10 +1,10 @@
 /*
- * c_config_m52_dbm0_trace/main.cpp
+ * c_config_m52_trace_dbm0_CORES_m52/main.cpp
  *
  * ACPU/M52 co-executed DBM0 trace smoke case.
  *
  * ACPU configures the AON trace path and DBM0.  M52 waits for ACPU, then
- * performs a small read/write traffic burst on its CPU bus.  DBM0 converts
+ * performs a larger read/write traffic burst on its CPU bus.  DBM0 converts
  * that bus activity to ATB trace and sends it through AON funnel slave
  * port 5 into the AON trace tree.
  */
@@ -49,7 +49,7 @@
 #define AON_M52_START_FLAG        0xC0DE0001U
 #define AON_M52_DONE_FLAG         0xC0DE0002U
 #define AON_M52_SCRATCH_ADDR      (AON_TRACE_BUF_ADDR + 0x00020000U)
-#define AON_M52_SCRATCH_WORDS     16U
+#define AON_M52_SCRATCH_WORDS     128U
 #define AON_M52_SCRATCH_PATTERN   0x444D4230U
 
 static void m52_check_reg(const char *name,
@@ -86,7 +86,7 @@ static void aon_sram_trace_data_check(void)
 COP_TEST_START
     /*
      * Keep the M52 side minimal: wait until ACPU has enabled DBM0, issue a
-     * small read/write burst, then report completion.
+     * larger read/write burst, then report completion.
      */
     while (R32((uintptr_t)AON_M52_START_FLAG_ADDR) != AON_M52_START_FLAG) {
     }
