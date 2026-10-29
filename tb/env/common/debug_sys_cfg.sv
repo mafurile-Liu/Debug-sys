@@ -24,7 +24,7 @@ class debug_sys_cfg extends uvm_object;
   bit          enable_axi_monitor = 1'b1;
   bit          enable_atb        = 1'b1;
   bit          enable_predictor  = 1'b1; // route through predictor/scoreboard
-  bit          enable_ect        = 1'b1;
+  bit          enable_ect        = 1'b0;
   int unsigned swd_turnaround    = 1;
   int unsigned axi_data_width    = 32;
   int unsigned axi_id_width      = 4;

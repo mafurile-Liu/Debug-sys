@@ -27,8 +27,27 @@ class debug_ect_smoke_test extends debug_port_base_test;
   endfunction
 
   virtual task main_phase(uvm_phase phase);
-    ect_aon_pulse_sequence    pulse_seq;
-    ect_aon_handshake_sequence handshake_seq;
+    ect_aon_pulse_sequence pulse_seq;
+    ect_aon_all_handshake_pairs_sequence handshake_seq;
+    ect_aon_loc_e req_loc[5];
+    int unsigned req_idx[5];
+    ect_aon_loc_e ack_loc[5];
+
+    req_loc = '{
+      ECT_AON_CTI_EVT_IN,
+      ECT_AON_CTI_EVT_IN,
+      ECT_AON_CTI_EVT_OUT,
+      ECT_AON_CTI_EVT_OUT,
+      ECT_AON_CTI_EVT_OUT
+    };
+    req_idx = '{6, 7, 7, 8, 14};
+    ack_loc = '{
+      ECT_AON_ACK_HIFI_CTI_OUT,
+      ECT_AON_ACK_HIFI_BREAK_OUT,
+      ECT_AON_ACK_HIFI_CTI_IN,
+      ECT_AON_ACK_HIFI_BREAK_IN,
+      ECT_AON_ACK_TBU
+    };
 
     phase.raise_objection(this);
 
@@ -66,23 +85,34 @@ class debug_ect_smoke_test extends debug_port_base_test;
 
     `uvm_info("ECT_SMOKE", "AON ECT pulse sequence completed", UVM_MEDIUM)
 
-    // Stage 2: handshake path.  The driver waits for the mapped HiFi ack.
-    env.ect_cfg.vif.hifi_cti_out_ack = 1'b0;
-    env.ect_scoreboard.expect_event(
-      .loc(ECT_AON_CTI_EVT_IN),
-      .index(6),
-      .expected_value(1'b1),
-      .timeout_cycles(100)
-    );
+    // Stage 2: run all mapped handshake request/ack paths.  The standalone
+    // top has no DUT, so the test maps each request to its ack one cycle
+    // later.
+    foreach (req_loc[i]) begin
+      env.ect_scoreboard.expect_event(
+        .loc(req_loc[i]), .index(req_idx[i]),
+        .expected_value(1'b1), .timeout_cycles(100)
+      );
+      env.ect_scoreboard.expect_event(
+        .loc(ack_loc[i]), .index(0),
+        .expected_value(1'b1), .timeout_cycles(100)
+      );
+      env.ect_scoreboard.expect_event(
+        .loc(req_loc[i]), .index(req_idx[i]),
+        .expected_value(1'b0), .timeout_cycles(100)
+      );
+      env.ect_scoreboard.expect_event(
+        .loc(ack_loc[i]), .index(0),
+        .expected_value(1'b0), .timeout_cycles(100)
+      );
+    end
 
-    handshake_seq = ect_aon_handshake_sequence::type_id::create(
+    handshake_seq = ect_aon_all_handshake_pairs_sequence::type_id::create(
       "handshake_seq");
     if (!handshake_seq.randomize() with {
-          loc            == ECT_AON_CTI_EVT_IN;
-          index          == 6;
           timeout_cycles == 100;
         }) begin
-      `uvm_error("ECT_SMOKE", "Failed to randomize ECT handshake sequence")
+      `uvm_error("ECT_SMOKE", "Failed to randomize ECT all-pair handshake sequence")
     end
 
     fork
@@ -90,16 +120,30 @@ class debug_ect_smoke_test extends debug_port_base_test;
         handshake_seq.start(env.vseqr.ect_sequencer);
       end
       begin
-        // Standalone HiFi ack responder: after the request is observed,
-        // return ack one cycle later.  Clear ack after request deasserts.
-        @(posedge env.ect_cfg.vif.clk);
-        wait (env.ect_cfg.vif.cti_aon_evt_in[6] === 1'b1);
-        @(posedge env.ect_cfg.vif.clk);
-        env.ect_cfg.vif.hifi_cti_out_ack = 1'b1;
-        wait (env.ect_cfg.vif.cti_aon_evt_in[6] !== 1'b1);
-        env.ect_cfg.vif.hifi_cti_out_ack = 1'b0;
+        // Standalone ack responder: register each request and update the
+        // mapped ack with nonblocking assignments.  This gives a one-cycle
+        // response and avoids same-edge sampling races with the driver and
+        // monitor.
+        forever begin
+          @(posedge env.ect_cfg.vif.clk);
+          env.ect_cfg.vif.hifi_cti_out_ack <=
+            env.ect_cfg.vif.cti_aon_evt_in[6];
+          env.ect_cfg.vif.hifi_break_out_ack <=
+            env.ect_cfg.vif.cti_aon_evt_in[7];
+          env.ect_cfg.vif.hifi_cti_in_ack <=
+            env.ect_cfg.vif.cti_aon_evt_out[7];
+          env.ect_cfg.vif.hifi_break_in_ack <=
+            env.ect_cfg.vif.cti_aon_evt_out[8];
+          env.ect_cfg.vif.tbu_pmusnapshot_ack <=
+            env.ect_cfg.vif.cti_aon_evt_out[14];
+        end
       end
-    join
+    join_any
+
+    // Allow the final ack-low NBA and monitor sample to complete before
+    // stopping the standalone responder.
+    @(posedge env.ect_cfg.vif.clk);
+    disable fork;
 
     `uvm_info("ECT_SMOKE", "AON ECT pulse and handshake sequences completed", UVM_MEDIUM)
     phase.drop_objection(this);
