@@ -1,13 +1,13 @@
-﻿`ifndef DEBUG_ENTRY_SEQUENCE_SV
+`ifndef DEBUG_ENTRY_SEQUENCE_SV
 `define DEBUG_ENTRY_SEQUENCE_SV
 
 // ==========================================
 // Entry Sequences (JTAG + SWD)
 // ==========================================
-// JTAG 版本和 SWD 版本分开定义, 都可以独立使用
+// JTAG ??? SWD ??????, ???????
 //
-// JTAG entry: 发 IR 切换到 IDCODE, 然后读 DR
-// SWD entry:  线复位, 然后读 DPIDR
+// JTAG entry: ? IR ??? IDCODE, ??? DR
+// SWD entry:  ???, ??? DPIDR
 // ==========================================
 
 // ==========================================

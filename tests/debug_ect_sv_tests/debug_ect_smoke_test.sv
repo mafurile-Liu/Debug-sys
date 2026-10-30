@@ -1,4 +1,4 @@
-﻿`ifndef DEBUG_ECT_SMOKE_TEST_SV
+`ifndef DEBUG_ECT_SMOKE_TEST_SV
 `define DEBUG_ECT_SMOKE_TEST_SV
 
 // ==========================================

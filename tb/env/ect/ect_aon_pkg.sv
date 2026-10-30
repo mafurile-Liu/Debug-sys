@@ -1,4 +1,4 @@
-﻿`ifndef ECT_AON_PKG_SV
+`ifndef ECT_AON_PKG_SV
 `define ECT_AON_PKG_SV
 
 // ------------------------------------------------------------------

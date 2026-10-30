@@ -1,4 +1,4 @@
-﻿`ifndef DEBUG_SEQ_PKG_SV
+`ifndef DEBUG_SEQ_PKG_SV
 `define DEBUG_SEQ_PKG_SV
 
 package debug_seq_pkg;

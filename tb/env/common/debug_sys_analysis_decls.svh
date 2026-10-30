@@ -1,4 +1,4 @@
-﻿`ifndef DEBUG_SYS_ANALYSIS_DECLS_SVH
+`ifndef DEBUG_SYS_ANALYSIS_DECLS_SVH
 `define DEBUG_SYS_ANALYSIS_DECLS_SVH
 
 // Analysis port declarations shared by predictor and scoreboard.

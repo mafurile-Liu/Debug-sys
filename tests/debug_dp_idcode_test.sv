@@ -1,4 +1,4 @@
-﻿`ifndef DEBUG_DP_IDCODE_TEST_SV
+`ifndef DEBUG_DP_IDCODE_TEST_SV
 `define DEBUG_DP_IDCODE_TEST_SV
 
 // ==========================================

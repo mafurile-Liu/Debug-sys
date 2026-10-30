@@ -63,6 +63,35 @@
         "Added expectation: %s", exp.convert2string()), UVM_MEDIUM)
     endfunction
 
+    function void expect_no_event(
+      ect_aon_loc_e loc,
+      int unsigned  index,
+      logic         forbidden_value = 1'b1,
+      int unsigned  timeout_cycles  = 0
+    );
+      ect_aon_expectation exp;
+
+      if (index >= ect_aon_loc_width(loc)) begin
+        `uvm_error("ECT_AON_SB", $sformatf(
+          "Invalid no-event index: loc=%s index=%0d width=%0d",
+          loc.name(), index, ect_aon_loc_width(loc)))
+        return;
+      end
+
+      exp = ect_aon_expectation::type_id::create("no_event");
+      exp.loc            = loc;
+      exp.index          = index;
+      exp.expected_value = forbidden_value;
+      exp.no_event       = 1'b1;
+      exp.timeout_cycles = (timeout_cycles != 0) ?
+                           timeout_cycles : cfg.default_timeout_cycles;
+
+      expectations.push_back(exp);
+      `uvm_info("ECT_AON_SB", $sformatf(
+        "Added no-event expectation: loc=%s index=%0d forbidden=%0b timeout=%0d",
+        loc.name(), index, forbidden_value, exp.timeout_cycles), UVM_MEDIUM)
+    endfunction
+
     local function string item_key(ect_aon_item item);
       return $sformatf("%s_%0d", item.loc.name(), item.index);
     endfunction
@@ -77,7 +106,16 @@
       for (int unsigned i = 0; i < expectations.size(); i++) begin
         if (expectations[i].loc   == item.loc &&
             expectations[i].index == item.index) begin
-          if (expectations[i].expected_value === item.value) begin
+          if (expectations[i].no_event &&
+              expectations[i].expected_value === item.value) begin
+            `uvm_error("ECT_AON_SB", $sformatf(
+              "Unexpected ECT transition: %s", item.convert2string()))
+            expectations.delete(i);
+            return;
+          end
+
+          if (!expectations[i].no_event &&
+              expectations[i].expected_value === item.value) begin
             `uvm_info("ECT_AON_SB", $sformatf(
               "Matched expectation: %s", item.convert2string()), UVM_MEDIUM)
             expectations.delete(i);
@@ -101,11 +139,19 @@
           int unsigned idx = i - 1;
 
           if (expectations[idx].timeout_cycles == 0) begin
-            `uvm_error("ECT_AON_SB", $sformatf(
-              "ECT expectation timeout: loc=%s index=%0d expected=%0b",
-              expectations[idx].loc.name(),
-              expectations[idx].index,
-              expectations[idx].expected_value))
+            if (expectations[idx].no_event) begin
+              `uvm_info("ECT_AON_SB", $sformatf(
+                "ECT no-event window passed: loc=%s index=%0d forbidden=%0b",
+                expectations[idx].loc.name(),
+                expectations[idx].index,
+                expectations[idx].expected_value), UVM_MEDIUM)
+            end else begin
+              `uvm_error("ECT_AON_SB", $sformatf(
+                "ECT expectation timeout: loc=%s index=%0d expected=%0b",
+                expectations[idx].loc.name(),
+                expectations[idx].index,
+                expectations[idx].expected_value))
+            end
             expectations.delete(idx);
           end else begin
             expectations[idx].timeout_cycles--;

@@ -6,6 +6,7 @@
     int unsigned  index;
     logic         expected_value;
     int unsigned  timeout_cycles;
+    bit           no_event;
 
     `uvm_object_utils(ect_aon_expectation)
 

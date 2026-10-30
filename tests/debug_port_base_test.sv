@@ -1,4 +1,4 @@
-﻿`ifndef DEBUG_PORT_BASE_TEST_SV
+`ifndef DEBUG_PORT_BASE_TEST_SV
 `define DEBUG_PORT_BASE_TEST_SV
 
 // Base Test Class

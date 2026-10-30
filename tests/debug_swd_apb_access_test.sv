@@ -1,20 +1,20 @@
-﻿`ifndef DEBUG_SWD_APB_ACCESS_TEST_SV
+`ifndef DEBUG_SWD_APB_ACCESS_TEST_SV
 `define DEBUG_SWD_APB_ACCESS_TEST_SV
 
 // ==========================================
-// SWD-to-APB 一站式访问测试
+// SWD-to-APB ???????
 // ==========================================
-// 【用户接口和 JTAG 版本完全一样!】
+// ?????? JTAG ??????!?
 //
-// 你只需要设置:
-//   seq.is_write    = 1'b1;  // 1=写, 0=读
-//   seq.apb_addr    = 32'hxxxx_xxxx;  // APB 总线地址
-//   seq.write_data  = 32'hxxxx_xxxx;  // 要写的数据
+// ??????:
+//   seq.is_write    = 1'b1;  // 1=?, 0=?
+//   seq.apb_addr    = 32'hxxxx_xxxx;  // APB ????
+//   seq.write_data  = 32'hxxxx_xxxx;  // ?????
 //
-// 然后调用一次 seq.start() 就搞定了!
+// ?????? seq.start() ????!
 //
-// 读操作完成后:
-//   read_result = seq.read_data;  // 就是 APB 总线上读到的数据
+// ??????:
+//   read_result = seq.read_data;  // ?? APB ????????
 //
 // ==========================================
 
@@ -32,92 +32,92 @@ class debug_swd_apb_access_test extends debug_port_base_test;
 
     phase.raise_objection(this);
     `uvm_info("TEST", "========================================", UVM_LOW)
-    `uvm_info("TEST", "START: SWD-APB 一站式访问测试", UVM_LOW)
+    `uvm_info("TEST", "START: SWD-APB ???????", UVM_LOW)
     `uvm_info("TEST", "========================================", UVM_LOW)
     `uvm_info("TEST", "", UVM_LOW)
 
     // ==========================================
-    // 示例 1: APB 写操作
+    // ?? 1: APB ???
     // ==========================================
-    `uvm_info("TEST", "----- 示例 1: APB 写操作 -----", UVM_LOW)
-    `uvm_info("TEST", "【和 JTAG 接口一模一样!】", UVM_MEDIUM)
+    `uvm_info("TEST", "----- ?? 1: APB ??? -----", UVM_LOW)
+    `uvm_info("TEST", "?? JTAG ??????!?", UVM_MEDIUM)
 
     swd_seq = debug_swd_apb_access_sequence::type_id::create("swd_write_seq");
 
-    // 【你只需要设置这 3 个!】
-    swd_seq.is_write    = 1'b1;               // 写操作
-    swd_seq.apb_addr    = 32'h4000_0000;       // APB 总线地址
-    swd_seq.write_data  = 32'hCAFE_BABE;       // 要写的数据
+    // ???????? 3 ?!?
+    swd_seq.is_write    = 1'b1;               // ???
+    swd_seq.apb_addr    = 32'h4000_0000;       // APB ????
+    swd_seq.write_data  = 32'hCAFE_BABE;       // ?????
 
-    // 【一次调用就完成! SWD 自动产生 APB 事务】
+    // ????????! SWD ???? APB ???
     swd_seq.start(env.vseqr.swd_sequencer);
 
-    `uvm_info("TEST", $sformatf("APB 写完成: ADDR=0x%08h DATA=0x%08h",
+    `uvm_info("TEST", $sformatf("APB ???: ADDR=0x%08h DATA=0x%08h",
       swd_seq.apb_addr, swd_seq.write_data), UVM_LOW)
 
     `uvm_info("TEST", "", UVM_LOW)
 
     // ==========================================
-    // 示例 2: APB 读操作
+    // ?? 2: APB ???
     // ==========================================
-    `uvm_info("TEST", "----- 示例 2: APB 读操作 -----", UVM_LOW)
-    `uvm_info("TEST", "【和 JTAG 接口一模一样!】", UVM_MEDIUM)
+    `uvm_info("TEST", "----- ?? 2: APB ??? -----", UVM_LOW)
+    `uvm_info("TEST", "?? JTAG ??????!?", UVM_MEDIUM)
 
     swd_seq = debug_swd_apb_access_sequence::type_id::create("swd_read_seq");
 
-    // 【你只需要设置这 2 个!】
-    swd_seq.is_write    = 1'b0;               // 读操作
-    swd_seq.apb_addr    = 32'h4000_0004;       // APB 总线地址
+    // ???????? 2 ?!?
+    swd_seq.is_write    = 1'b0;               // ???
+    swd_seq.apb_addr    = 32'h4000_0004;       // APB ????
 
-    // 【一次调用就完成!】
+    // ????????!?
     swd_seq.start(env.vseqr.swd_sequencer);
 
-    // 【结果在这里!】
+    // ??????!?
     read_result = swd_seq.read_data;
 
-    `uvm_info("TEST", $sformatf("APB 读完成: ADDR=0x%08h DATA=0x%08h",
+    `uvm_info("TEST", $sformatf("APB ???: ADDR=0x%08h DATA=0x%08h",
       swd_seq.apb_addr, read_result), UVM_LOW)
 
     `uvm_info("TEST", "", UVM_LOW)
 
     // ==========================================
-    // 示例 3: 连续的 APB 读写
+    // ?? 3: ??? APB ??
     // ==========================================
-    `uvm_info("TEST", "----- 示例 3: 连续 APB 读写 -----", UVM_LOW)
+    `uvm_info("TEST", "----- ?? 3: ?? APB ?? -----", UVM_LOW)
 
-    // 写地址 0
+    // ??? 0
     swd_seq = debug_swd_apb_access_sequence::type_id::create("seq1");
     swd_seq.is_write = 1'b1;
     swd_seq.apb_addr = 32'h4000_0000;
     swd_seq.write_data = 32'hAAAA_AAAA;
     swd_seq.start(env.vseqr.swd_sequencer);
-    `uvm_info("TEST", $sformatf("写 0x%08h: 0x%08h", swd_seq.apb_addr, swd_seq.write_data), UVM_LOW)
+    `uvm_info("TEST", $sformatf("? 0x%08h: 0x%08h", swd_seq.apb_addr, swd_seq.write_data), UVM_LOW)
 
-    // 写地址 4
+    // ??? 4
     swd_seq = debug_swd_apb_access_sequence::type_id::create("seq2");
     swd_seq.is_write = 1'b1;
     swd_seq.apb_addr = 32'h4000_0004;
     swd_seq.write_data = 32'hBBBB_BBBB;
     swd_seq.start(env.vseqr.swd_sequencer);
-    `uvm_info("TEST", $sformatf("写 0x%08h: 0x%08h", swd_seq.apb_addr, swd_seq.write_data), UVM_LOW)
+    `uvm_info("TEST", $sformatf("? 0x%08h: 0x%08h", swd_seq.apb_addr, swd_seq.write_data), UVM_LOW)
 
-    // 读地址 0
+    // ??? 0
     swd_seq = debug_swd_apb_access_sequence::type_id::create("seq3");
     swd_seq.is_write = 1'b0;
     swd_seq.apb_addr = 32'h4000_0000;
     swd_seq.start(env.vseqr.swd_sequencer);
-    `uvm_info("TEST", $sformatf("读 0x%08h: 0x%08h", swd_seq.apb_addr, swd_seq.read_data), UVM_LOW)
+    `uvm_info("TEST", $sformatf("? 0x%08h: 0x%08h", swd_seq.apb_addr, swd_seq.read_data), UVM_LOW)
 
-    // 读地址 4
+    // ??? 4
     swd_seq = debug_swd_apb_access_sequence::type_id::create("seq4");
     swd_seq.is_write = 1'b0;
     swd_seq.apb_addr = 32'h4000_0004;
     swd_seq.start(env.vseqr.swd_sequencer);
-    `uvm_info("TEST", $sformatf("读 0x%08h: 0x%08h", swd_seq.apb_addr, swd_seq.read_data), UVM_LOW)
+    `uvm_info("TEST", $sformatf("? 0x%08h: 0x%08h", swd_seq.apb_addr, swd_seq.read_data), UVM_LOW)
 
     `uvm_info("TEST", "", UVM_LOW)
     `uvm_info("TEST", "========================================", UVM_LOW)
-    `uvm_info("TEST", "END: SWD-APB 一站式访问测试", UVM_LOW)
+    `uvm_info("TEST", "END: SWD-APB ???????", UVM_LOW)
     `uvm_info("TEST", "========================================", UVM_LOW)
     phase.drop_objection(this);
   endtask

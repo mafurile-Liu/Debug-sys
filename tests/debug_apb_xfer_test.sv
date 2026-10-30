@@ -1,4 +1,4 @@
-﻿`ifndef DEBUG_APB_XFER_TEST_SV
+`ifndef DEBUG_APB_XFER_TEST_SV
 `define DEBUG_APB_XFER_TEST_SV
 
 /**

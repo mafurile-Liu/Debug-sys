@@ -1,4 +1,4 @@
-﻿`ifndef DEBUG_DAP_REG_ACCESS_SEQUENCE_SV
+`ifndef DEBUG_DAP_REG_ACCESS_SEQUENCE_SV
 `define DEBUG_DAP_REG_ACCESS_SEQUENCE_SV
 
 // ==========================================

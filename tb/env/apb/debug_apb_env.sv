@@ -1,25 +1,25 @@
-﻿`ifndef DEBUG_APB_ENV_SV
+`ifndef DEBUG_APB_ENV_SV
 `define DEBUG_APB_ENV_SV
 
 // ==========================================
 // APB Environment
 // ==========================================
-// 封装 APB Master/Slave VIP 和 RAL 寄存器模型
+// ?? APB Master/Slave VIP ? RAL ?????
 //
-// 对外提供的 sequencer:
-//   master_sequencer - 用于发送 APB 事务
+// ????? sequencer:
+//   master_sequencer - ???? APB ??
 //
-// 对外提供的 monitor port:
-//   master_monitor_port  - Master 端观测端口 (接 scoreboard exp)
-//   slave_monitor_port   - Slave 端观测端口 (接 scoreboard actual)
+// ????? monitor port:
+//   master_monitor_port  - Master ????? (? scoreboard exp)
+//   slave_monitor_port   - Slave ????? (? scoreboard actual)
 // ==========================================
 
 class debug_apb_env extends uvm_env;
 
-  // 配置
+  // ??
   debug_sys_cfg cfg;
 
-  // 配置对象
+  // ????
   cust_apb_cfg apb_master_cfg_obj;
   cust_apb_cfg apb_slave_cfg_obj;
 
@@ -27,7 +27,7 @@ class debug_apb_env extends uvm_env;
   svt_apb_system_env apb_master_env;
   svt_apb_system_env apb_slave_env;
 
-  // 寄存器模型
+  // ?????
   debug_sys_reg_block regmodel;
 
   `uvm_component_utils(debug_apb_env)
@@ -51,10 +51,10 @@ class debug_apb_env extends uvm_env;
   endfunction
 
   // ==========================================
-  // 构建 APB Master/Slave agent
+  // ?? APB Master/Slave agent
   // ==========================================
   virtual function void build_apb_agents();
-    // Master 配置
+    // Master ??
     apb_master_cfg_obj = cust_apb_cfg::type_id::create("apb_master_cfg_obj");
     apb_master_cfg_obj.is_active = 1'b1;
     apb_master_cfg_obj.slave_cfg[0].is_active = 1'b0;
@@ -65,7 +65,7 @@ class debug_apb_env extends uvm_env;
     uvm_config_db#(uvm_active_passive_enum)::set(
       this, "apb_master_env.slave[0]", "is_active", UVM_PASSIVE);
 
-    // Slave 配置
+    // Slave ??
     apb_slave_cfg_obj = cust_apb_cfg::type_id::create("apb_slave_cfg_obj");
     apb_slave_cfg_obj.is_active = 1'b0;
     apb_slave_cfg_obj.slave_cfg[0].is_active = 1'b1;
@@ -76,7 +76,7 @@ class debug_apb_env extends uvm_env;
     uvm_config_db#(uvm_active_passive_enum)::set(
       this, "apb_slave_env.slave[0]", "is_active", UVM_ACTIVE);
 
-    // 实例化
+    // ???
     apb_master_env = svt_apb_system_env::type_id::create("apb_master_env", this);
     apb_slave_env  = svt_apb_system_env::type_id::create("apb_slave_env", this);
 
@@ -84,7 +84,7 @@ class debug_apb_env extends uvm_env;
   endfunction
 
   // ==========================================
-  // 构建寄存器模型
+  // ???????
   // ==========================================
   virtual function void build_regmodel();
     regmodel = debug_sys_reg_block::type_id::create("regmodel");
@@ -96,14 +96,14 @@ class debug_apb_env extends uvm_env;
   endfunction
 
   // ==========================================
-  // 便捷方法: 获取 master sequencer
+  // ????: ?? master sequencer
   // ==========================================
   virtual function svt_apb_master_sequencer get_master_sequencer();
     get_master_sequencer = apb_master_env.master.sequencer;
   endfunction
 
   // ==========================================
-  // 便捷方法: 获取 slave agent
+  // ????: ?? slave agent
   // ==========================================
   virtual function svt_apb_slave_agent get_slave_agent(int idx = 0);
     get_slave_agent = apb_slave_env.slave[idx];

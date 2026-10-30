@@ -1,19 +1,19 @@
-﻿`ifndef DEBUG_SYS_CFG_SV
+`ifndef DEBUG_SYS_CFG_SV
 `define DEBUG_SYS_CFG_SV
 
 // ==========================================
 // Debug System Configuration
 // ==========================================
-// 运行时配置对象, 通过 plusarg 控制协议选择
+// ???????, ?? plusarg ??????
 //
-// 协议选择:
-//   +debug_port_proto=JTAG  -> 使用 JTAG 协议
-//   +debug_port_proto=SWD   -> 使用 SWD 协议
+// ????:
+//   +debug_port_proto=JTAG  -> ?? JTAG ??
+//   +debug_port_proto=SWD   -> ?? SWD ??
 // ==========================================
 
 typedef enum {
-  PROTO_JTAG,  // JTAG 协议
-  PROTO_SWD    // SWD 协议
+  PROTO_JTAG,  // JTAG ??
+  PROTO_SWD    // SWD ??
 } debug_proto_e;
 
 class debug_sys_cfg extends uvm_object;
@@ -29,8 +29,8 @@ class debug_sys_cfg extends uvm_object;
   int unsigned axi_data_width    = 32;
   int unsigned axi_id_width      = 4;
 
-  // 调试端口协议选择 (运行时通过 plusarg 设置)
-  debug_proto_e port_protocol = PROTO_JTAG;  // 默认 JTAG
+  // ???????? (????? plusarg ??)
+  debug_proto_e port_protocol = PROTO_JTAG;  // ?? JTAG
 
   // Address-routing model. Default = standalone identity map; tests/DUT replace it.
   debug_sys_addr_map addr_map;
@@ -58,13 +58,13 @@ class debug_sys_cfg extends uvm_object;
   endfunction
 
   // ==========================================
-  // 从 plusarg 读取配置
-  // 使用方法: +debug_port_proto=JTAG 或 +debug_port_proto=SWD
+  // ? plusarg ????
+  // ????: +debug_port_proto=JTAG ? +debug_port_proto=SWD
   // ==========================================
   virtual function void apply_plusargs();
     string proto_str;
 
-    // 协议选择
+    // ????
     if ($value$plusargs("debug_port_proto=%s", proto_str)) begin
       case (proto_str.tolower())
         "jtag": port_protocol = PROTO_JTAG;
@@ -83,12 +83,12 @@ class debug_sys_cfg extends uvm_object;
     end
   endfunction
 
-  // 便捷方法: 判断当前是不是 JTAG
+  // ????: ??????? JTAG
   virtual function bit is_jtag();
     return (port_protocol == PROTO_JTAG);
   endfunction
 
-  // 便捷方法: 判断当前是不是 SWD
+  // ????: ??????? SWD
   virtual function bit is_swd();
     return (port_protocol == PROTO_SWD);
   endfunction

@@ -1,4 +1,4 @@
-﻿`ifndef DEBUG_PORT_SMOKE_TEST_SV
+`ifndef DEBUG_PORT_SMOKE_TEST_SV
 `define DEBUG_PORT_SMOKE_TEST_SV
 
 class debug_port_smoke_test extends debug_port_base_test;

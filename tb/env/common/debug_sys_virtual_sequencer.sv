@@ -1,15 +1,15 @@
-﻿`ifndef DEBUG_SYS_VIRTUAL_SEQUENCER_SV
+`ifndef DEBUG_SYS_VIRTUAL_SEQUENCER_SV
 `define DEBUG_SYS_VIRTUAL_SEQUENCER_SV
 
 // ==========================================
 // Debug System Virtual Sequencer
 // ==========================================
-// 同时持有 JTAG 和 SWD sequencer 句柄
-// 运行时根据 cfg.port_protocol 决定使用哪一个
+// ???? JTAG ? SWD sequencer ??
+// ????? cfg.port_protocol ???????
 //
-// 使用方式:
-//   JTAG 序列 -> vseqr.jtag_sequencer
-//   SWD 序列  -> vseqr.swd_sequencer
+// ????:
+//   JTAG ?? -> vseqr.jtag_sequencer
+//   SWD ??  -> vseqr.swd_sequencer
 // ==========================================
 
 class debug_sys_virtual_sequencer extends
@@ -18,14 +18,14 @@ class debug_sys_virtual_sequencer extends
   typedef virtual debug_reset_if.seq_mp reset_vif_t;
   reset_vif_t reset_vif;
 
-  // 配置
+  // ??
   debug_sys_cfg cfg;
 
-  // Debug port sequencers (JTAG 和 SWD 都有)
+  // Debug port sequencers (JTAG ? SWD ??)
   svt_jtag_transaction_sequencer jtag_sequencer;
   svt_swd_transaction_sequencer  swd_sequencer;
 
-  // 其他协议 sequencer
+  // ???? sequencer
   svt_apb_master_sequencer apb_sequencer;
   svt_atb_system_sequencer atb_sequencer;
   debug_sys_reg_block regmodel;
@@ -53,7 +53,7 @@ class debug_sys_virtual_sequencer extends
   endfunction
 
   // ==========================================
-  // 便捷方法: 获取当前激活协议的 sequencer (基类类型)
+  // ????: ????????? sequencer (????)
   // ==========================================
   virtual function uvm_sequencer_base get_active_port_sequencer();
     if (cfg.is_jtag()) begin
