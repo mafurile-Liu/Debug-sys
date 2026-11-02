@@ -5,7 +5,7 @@
     ect_aon_cfg        cfg;
     ect_aon_monitor    monitor;
     ect_aon_driver     driver;
-    ect_aon_sequencer  sequencer;
+    uvm_sequencer#(ect_aon_item) sequencer;
     ect_aon_coverage   coverage;
 
     `uvm_component_utils(ect_aon_agent)
@@ -37,7 +37,7 @@
 
       if (cfg.is_active == UVM_ACTIVE) begin
         driver    = ect_aon_driver::type_id::create("driver", this);
-        sequencer = ect_aon_sequencer::type_id::create("sequencer", this);
+        sequencer = uvm_sequencer#(ect_aon_item)::type_id::create("sequencer", this);
         uvm_config_db#(ect_aon_cfg)::set(this, "driver", "cfg", cfg);
       end
     endfunction
