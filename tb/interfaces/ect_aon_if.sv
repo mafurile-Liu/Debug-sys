@@ -26,11 +26,11 @@ interface ect_aon_if(input logic clk, input logic rst_n);
   logic [7:0] cti_m52_evt_out;
 
   // CTM channel paths for CTI_AON.
-  logic [15:0] ctm_aon_ch_in = '0;
+  logic [15:0] ctm_aon_ch_in;
   logic [15:0] ctm_aon_ch_out;
 
   // CTM channel paths for CTI_M52.
-  logic [3:0] ctm_m52_ch_in = '0;
+  logic [3:0] ctm_m52_ch_in;
   logic [3:0] ctm_m52_ch_out;
 
   // CTM channel paths bridged to the top-level async CTM tree.
