@@ -18,23 +18,23 @@ interface ect_aon_if(input logic clk, input logic rst_n);
   // CTI_AON local trigger events.
   // evt_in : subsystem/IP events into CTI_AON
   // evt_out: CTI_AON generated events to IP sinks
-  logic [9:0]  cti_aon_evt_in;
+  logic [9:0]  cti_aon_evt_in = '0;
   logic [14:0] cti_aon_evt_out;
 
   // CTI_M52 local trigger events.
-  logic [5:0] cti_m52_evt_in;
+  logic [5:0] cti_m52_evt_in = '0;
   logic [7:0] cti_m52_evt_out;
 
   // CTM channel paths for CTI_AON.
-  logic [15:0] ctm_aon_ch_in;
+  logic [15:0] ctm_aon_ch_in = '0;
   logic [15:0] ctm_aon_ch_out;
 
   // CTM channel paths for CTI_M52.
-  logic [3:0] ctm_m52_ch_in;
+  logic [3:0] ctm_m52_ch_in = '0;
   logic [3:0] ctm_m52_ch_out;
 
   // CTM channel paths bridged to the top-level async CTM tree.
-  logic [15:0] ctm_top_ch_in;
+  logic [15:0] ctm_top_ch_in = '0;
   logic [15:0] ctm_top_ch_out;
 
   // Dedicated handshake acknowledgement view.  These are kept separate from
