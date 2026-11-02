@@ -10,13 +10,16 @@
 //   2. Include this file in the same top-level module.
 //
 // Connection policy:
-//   - Injection-side IP/CTI inputs use force so the agent can drive them.
 //   - Observation-side CTI outputs and acks use assign.
-//   - Channel in is forced; channel out is observed.
+//   - Source-side event injection forces are enabled only with
+//     +ECT_AON_ENABLE_SOURCE_FORCE.  Without this plusarg, real IP drivers
+//     remain connected and are not overridden by the TB.
 // ------------------------------------------------------------------
 
-// ---------------- CTI_AON event_in: agent injection ----------------
+// ---------------- CTI_AON / CTI_M52 event_in: agent injection ----------------
+// Enable source forcing only for dedicated ECT injection tests.
 initial begin
+  if ($test$plusargs("ECT_AON_ENABLE_SOURCE_FORCE")) begin
   force sys_aon_pwr_wrap.u_sys_aon_top.u_sys_dbg_aon.u_trace_dbg_aon.u_css600_tmc_etf_dbg_aon.full
     = ect_if.cti_aon_evt_in[0];
 
@@ -46,6 +49,7 @@ initial begin
 
   force sys_aon_pwr_wrap.u_sys_aon_top.u_aon_mem_noc_out.u_axi_bus_monitor.cti_trig_out[1]
     = ect_if.cti_aon_evt_in[9];
+  end
 end
 
 // ---------------- CTI_AON event_out: observation ----------------
@@ -121,6 +125,7 @@ assign ect_if.ctm_aon_ch_out =
 
 // ---------------- CTI_M52 event_in: agent injection ----------------
 initial begin
+  if ($test$plusargs("ECT_AON_ENABLE_SOURCE_FORCE")) begin
   force sys_aon_pwr_wrap.u_sys_aon_top.u_aon_m52_wrapper.u_MIZAR.u_pdcore.u_core_wrapper.gen_cti.u_cti.core_halted_rise
     = ect_if.cti_m52_evt_in[0];
 
@@ -129,6 +134,7 @@ initial begin
 
   force sys_aon_pwr_wrap.u_sys_aon_top.u_aon_m52_wrapper.u_MIZAR.u_pdcore.u_core_wrapper.gen_cti.u_cti.etm_cti_extout_i[1:0]
     = ect_if.cti_m52_evt_in[5:4];
+  end
 end
 
 // ---------------- CTI_M52 event_out: observation ----------------

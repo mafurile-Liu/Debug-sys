@@ -38,6 +38,11 @@ class debug_ect_route_etf_full_to_trigin extends debug_port_base_test;
       `uvm_fatal("ECT_ROUTE", "AON ECT env/sequencer/scoreboard is not available")
     end
 
+    if (!$test$plusargs("ECT_AON_ENABLE_SOURCE_FORCE")) begin
+      `uvm_fatal("ECT_ROUTE",
+        "Missing +ECT_AON_ENABLE_SOURCE_FORCE; source event cannot enter DUT")
+    end
+
     // Give the C configuration case time to program CTIINEN0, CTIOUTEN1,
     // GATE, and CONTROL before injecting the source event.
     repeat (2000) @(posedge env.ect_cfg.vif.clk);
