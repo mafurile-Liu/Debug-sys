@@ -1,4 +1,4 @@
-﻿`ifndef DEBUG_SYS_ENV_SV
+`ifndef DEBUG_SYS_ENV_SV
 `define DEBUG_SYS_ENV_SV
 
 // ==========================================

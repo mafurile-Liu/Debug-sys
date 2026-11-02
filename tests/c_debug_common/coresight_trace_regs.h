@@ -27,7 +27,7 @@
  * ====================================================================== */
 
 /* AON trace tree (APBIC_DBG_AON expander0)
- * Trace sources (per AON_SS架构.png): M52 ITM, M52 ETM, HiFi5s TRAX/ITM */
+ * Trace sources (per AON_SS architecture diagram): M52 ITM, M52 ETM, HiFi5s TRAX/ITM */
 #define AON_FUNNEL_BASE      0x4A202000U
 #define AON_ETF_BASE         0x4A203000U
 #define AON_REPLICATOR_BASE  0x4A204000U
@@ -61,7 +61,7 @@
 #define TRAXSTAT_TRACT       (1U << 0)
 
 /* SYS / dbg_ss trace tree (APBIC_SYS_DBG expander1)
- * Trace source (per AON_SS架构.png): STM */
+ * Trace source (per AON_SS architecture diagram): STM */
 #define SYS_STM_BASE         0x4A400000U
 #define SYS_FUNNEL_BASE      0x4A402000U
 #define SYS_ETF_BASE         0x4A403000U

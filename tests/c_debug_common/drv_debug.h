@@ -34,7 +34,7 @@
 #include "coresight_trace_regs.h"
 
 /* AON trace tree startup.
- * Trace sources (per AON_SS架构.png): M52 ITM, M52 ETM, HiFi5s TRAX/ITM
+ * Trace sources (per AON_SS architecture diagram): M52 ITM, M52 ETM, HiFi5s TRAX/ITM
  * funnel_slave_port_mask: bit mask of FUNNEL slave ports to enable.
  * catu_sladdr: CATU scatter-list address (used in TRACE_MODE_ETF_CATU_TRANSLATE).
  *   Use CATU_SLADDR_DEFAULT (AON SRAM base + 0x10000) or override. 4KB-aligned.
@@ -49,7 +49,7 @@ void aon_trace_init(trace_mode_t mode,
                     uint32_t     catu_sladdr);
 
 /* dbg_ss (SYS) trace tree startup.
- * Trace source (per AON_SS架构.png): STM */
+ * Trace source (per AON_SS architecture diagram): STM */
 void dbg_ss_trace_init(trace_mode_t mode,
                        uint32_t     funnel_slave_port_mask,
                        uint32_t     etr_buf_addr,

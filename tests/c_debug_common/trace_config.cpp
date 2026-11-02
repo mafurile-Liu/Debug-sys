@@ -343,7 +343,7 @@ void crash_dump_start(void)
 /* ----------------------------------------------------------------------
  * AON trace tree startup.
  * Components: Funnel -> Replicator -> {ETF (port0), ETR->CATU (port1)}
- * Trace sources (per AON_SS架构.png):
+ * Trace sources (per AON_SS architecture diagram):
  *   - M52 ITM
  *   - M52 ETM
  *   - HiFi5s TRAX/ITM
@@ -483,7 +483,7 @@ void aon_trace_flush(void)
 /* ----------------------------------------------------------------------
  * dbg_ss (SYS) trace tree startup.
  * Components: STM -> Funnel -> Replicator -> {ETF (port0), ETR->CATU (port1)}
- * Trace source (per AON_SS架构.png): STM
+ * Trace source (per AON_SS architecture diagram): STM
  * ---------------------------------------------------------------------- */
 void dbg_ss_trace_init(trace_mode_t mode,
                        uint32_t     funnel_slave_port_mask,
