@@ -110,11 +110,9 @@ assign ect_if.hifi_break_in_ack =
 assign ect_if.tbu_pmusnapshot_ack =
   sys_aon_pwr_wrap.u_sys_aon_top.u_aon_mem_noc_out.u_tbu_aon.pmusnapshot_ack;
 
-assign ect_if.cti_aon_ch_out =
-  sys_aon_pwr_wrap.u_sys_aon_top.u_sys_dbg_aon.u_ect_dbg_aon.u_css600_cti_com.channel_out;
-
-// Observe the AON CTM channel view as well: ch_in receives from CTI_AON,
-// ch_out drives back to CTI_AON.  Both are useful for route/crosstalk checks.
+// The CTI-side channel signals are intentionally not connected here.  Some
+// simulators reject these cross-module interface-variable assignments.  The
+// crosstalk checker uses the CTM-side ctm_aon_ch_in/out signals below.
 assign ect_if.ctm_aon_ch_in =
   sys_aon_pwr_wrap.u_sys_aon_top.u_sys_dbg_aon.u_ect_dbg_aon.u_css600_cti_com.channel_out;
 
@@ -149,9 +147,9 @@ assign ect_if.cti_m52_evt_out[7:4] =
 assign sys_aon_pwr_wrap.u_sys_aon_top.u_aon_m52_wrapper.u_MIZAR.u_pdcore.u_core_wrapper.gen_cti.u_cti.cti_core_trigout_o[7:4] =
   ect_if.cti_m52_evt_out[7:4];
 
-assign ect_if.cti_m52_ch_out =
-  sys_aon_pwr_wrap.u_sys_aon_top.u_aon_m52_wrapper.u_MIZAR.u_pdcore.u_core_wrapper.gen_cti.u_cti.cti_ext_chout_o;
-
+// The CTI_M52-side channel output is intentionally not connected here for
+// the same VCS XMRE reason.  The CTM-side ctm_m52_ch_in/out signals below
+// provide the route/crosstalk visibility.
 assign ect_if.ctm_m52_ch_in =
   sys_aon_pwr_wrap.u_sys_aon_top.u_aon_m52_wrapper.u_MIZAR.u_pdcore.u_core_wrapper.gen_cti.u_cti.cti_ext_chout_o;
 
