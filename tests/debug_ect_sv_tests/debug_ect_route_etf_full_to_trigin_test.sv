@@ -65,14 +65,6 @@ class debug_ect_route_etf_full_to_trigin extends debug_port_base_test;
       .expected_value(1'b0), .timeout_cycles(1000)
     );
     env.ect_scoreboard.expect_event(
-      .loc(ECT_CTM_AON_CH_OUT), .index(0),
-      .expected_value(1'b1), .timeout_cycles(1000)
-    );
-    env.ect_scoreboard.expect_event(
-      .loc(ECT_CTM_AON_CH_OUT), .index(0),
-      .expected_value(1'b0), .timeout_cycles(1000)
-    );
-    env.ect_scoreboard.expect_event(
       .loc(ECT_AON_CTI_EVT_OUT), .index(1),
       .expected_value(1'b1), .timeout_cycles(1000)
     );
@@ -81,7 +73,27 @@ class debug_ect_route_etf_full_to_trigin extends debug_port_base_test;
       .expected_value(1'b0), .timeout_cycles(1000)
     );
 
-    // Crosstalk check: no other AON CTM channel may pulse high.
+    // CTM fanout checks.  The source CTI_AON ch_out is observed as
+    // ECT_CTM_AON_CH_IN.  Channel0 also fans out to the M52 CTI input and
+    // the top async CTM path.
+    env.ect_scoreboard.expect_event(
+      .loc(ECT_CTM_M52_CH_OUT), .index(0),
+      .expected_value(1'b1), .timeout_cycles(1000)
+    );
+    env.ect_scoreboard.expect_event(
+      .loc(ECT_CTM_M52_CH_OUT), .index(0),
+      .expected_value(1'b0), .timeout_cycles(1000)
+    );
+    env.ect_scoreboard.expect_event(
+      .loc(ECT_CTM_TOP_CH_OUT), .index(0),
+      .expected_value(1'b1), .timeout_cycles(1000)
+    );
+    env.ect_scoreboard.expect_event(
+      .loc(ECT_CTM_TOP_CH_OUT), .index(0),
+      .expected_value(1'b0), .timeout_cycles(1000)
+    );
+
+    // Crosstalk check: only channel0 is expected on the routed CTM paths.
     for (ch = 1; ch < 16; ch++) begin
       env.ect_scoreboard.expect_no_event(
         .loc(ECT_CTM_AON_CH_IN), .index(ch),
@@ -91,6 +103,29 @@ class debug_ect_route_etf_full_to_trigin extends debug_port_base_test;
         .loc(ECT_CTM_AON_CH_OUT), .index(ch),
         .forbidden_value(1'b1), .timeout_cycles(1000)
       );
+      env.ect_scoreboard.expect_no_event(
+        .loc(ECT_CTM_TOP_CH_IN), .index(ch),
+        .forbidden_value(1'b1), .timeout_cycles(1000)
+      );
+      env.ect_scoreboard.expect_no_event(
+        .loc(ECT_CTM_TOP_CH_OUT), .index(ch),
+        .forbidden_value(1'b1), .timeout_cycles(1000)
+      );
+    end
+
+    // M52 CTI is intentionally not configured in this case, so none of its
+    // channel outputs should pulse.  Also check non-zero M52 input channels.
+    for (ch = 0; ch < 4; ch++) begin
+      env.ect_scoreboard.expect_no_event(
+        .loc(ECT_CTM_M52_CH_IN), .index(ch),
+        .forbidden_value(1'b1), .timeout_cycles(1000)
+      );
+    end
+    for (ch = 1; ch < 4; ch++) begin
+      env.ect_scoreboard.expect_no_event(
+        .loc(ECT_CTM_M52_CH_OUT), .index(ch),
+        .forbidden_value(1'b1), .timeout_cycles(1000)
+      );
     end
 
     pulse_seq = ect_aon_pulse_sequence::type_id::create("pulse_seq");
@@ -98,7 +133,7 @@ class debug_ect_route_etf_full_to_trigin extends debug_port_base_test;
           loc          == ECT_AON_CTI_EVT_IN;
           index        == 0;
           value        == 1'b1;
-          pulse_cycles == 1;
+          pulse_cycles == 2;
         }) begin
       `uvm_error("ECT_ROUTE", "Failed to randomize ETF.full pulse sequence")
     end

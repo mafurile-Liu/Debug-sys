@@ -83,7 +83,9 @@ module debug_port_top;
   // Clock and reset
   reg pclk = 0;
   reg preset_n = 1;
+  reg clk_trace_aon = 0;
   always #5 pclk = ~pclk;
+  always #2 clk_trace_aon = ~clk_trace_aon;
 
   initial begin
     #20 preset_n = 0;
@@ -95,7 +97,7 @@ module debug_port_top;
 
   // AON ECT event/channel interface.  No DUT hookup in standalone debug-port
   // top yet; this keeps the agent integration and config_db path ready.
-  ect_aon_if ect_if(.clk(pclk), .rst_n(preset_n));
+  ect_aon_if ect_if(.clk(pclk), .clk_trace_aon(clk_trace_aon), .rst_n(preset_n));
 
   // ==========================================
   // JTAG interfaces + loopback

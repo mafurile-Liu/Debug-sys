@@ -165,4 +165,14 @@ assign ect_if.ctm_m52_ch_out =
 assign ect_if.ctm_top_ch_out =
   sys_aon_pwr_wrap.u_sys_aon_top.u_sys_dbg_aon.u_ect_dbg_aon.ctm_channel_out[47:32];
 
+// ---------------- CTM top channel input: agent injection ----------------
+// Force only for dedicated ECT injection tests.  The top async CTM input is
+// driven by the verification agent; normal IP drivers remain untouched.
+initial begin
+  if ($test$plusargs("ECT_AON_ENABLE_SOURCE_FORCE")) begin
+    force sys_aon_pwr_wrap.u_sys_aon_top.u_sys_dbg_aon.u_ect_dbg_aon.ctm_channel_in[47:32] =
+      ect_if.ctm_top_ch_in;
+  end
+end
+
 `endif

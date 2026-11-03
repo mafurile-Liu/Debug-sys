@@ -35,19 +35,41 @@
     endfunction
 
     virtual task run_phase(uvm_phase phase);
+      fork
+        monitor_source_domain();
+        monitor_trace_domain();
+      join
+    endtask
+
+    // IP/CTI source events are sampled in the APB/source clock domain.
+    local task monitor_source_domain();
       forever begin
         @(posedge vif.clk);
-        sample_all_locs();
+        sample_loc(ECT_AON_CTI_EVT_IN);
+        sample_loc(ECT_M52_CTI_EVT_IN);
+        sample_loc(ECT_AON_ACK_HIFI_CTI_OUT);
+        sample_loc(ECT_AON_ACK_HIFI_BREAK_OUT);
+        sample_loc(ECT_AON_ACK_HIFI_CTI_IN);
+        sample_loc(ECT_AON_ACK_HIFI_BREAK_IN);
+        sample_loc(ECT_AON_ACK_TBU);
       end
     endtask
 
-    local function void sample_all_locs();
-      for (int unsigned loc_id = ECT_AON_CTI_EVT_IN;
-           loc_id <= ECT_AON_ACK_TBU;
-           loc_id++) begin
-        sample_loc(ect_aon_loc_e'(loc_id));
+    // CTI outputs and CTM channel outputs are sampled in the AON trace clock
+    // domain.  This avoids missing single-cycle pulses when the TB interface
+    // clock is the slower APB clock.
+    local task monitor_trace_domain();
+      forever begin
+        @(posedge vif.clk_trace_aon);
+        sample_loc(ECT_AON_CTI_EVT_OUT);
+        sample_loc(ECT_CTM_AON_CH_IN);
+        sample_loc(ECT_CTM_AON_CH_OUT);
+        sample_loc(ECT_CTM_M52_CH_IN);
+        sample_loc(ECT_CTM_M52_CH_OUT);
+        sample_loc(ECT_CTM_TOP_CH_IN);
+        sample_loc(ECT_CTM_TOP_CH_OUT);
       end
-    endfunction
+    endtask
 
     local function void sample_loc(ect_aon_loc_e loc);
       for (int unsigned index = 0; index < ect_aon_loc_width(loc); index++) begin

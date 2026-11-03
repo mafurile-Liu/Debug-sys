@@ -34,15 +34,6 @@ static uint32_t ect_route_read(uint32_t offset)
     return R32((uintptr_t)(ECT_ROUTE_CTI_BASE + offset));
 }
 
-static void ect_route_clear_all_maps(void)
-{
-    uint32_t i;
-
-    for (i = 0U; i < 16U; ++i) {
-        ect_route_write(CTI_INEN(i), 0U);
-        ect_route_write(CTI_OUTEN(i), 0U);
-    }
-}
 
 static void ect_route_configure(void)
 {
@@ -55,9 +46,6 @@ static void ect_route_configure(void)
     ctrl = ect_route_read(CTI_CONTROL);
     c_uvm_info("ect route: CONTROL before config = 0x%08x", ctrl);
     ect_route_write(CTI_CONTROL, 0U);
-
-    /* Clear old mappings so only the requested route can fire. */
-    ect_route_clear_all_maps();
 
     /* input[0] -> channel[0] */
     inen = ECT_ROUTE_CH_MASK;

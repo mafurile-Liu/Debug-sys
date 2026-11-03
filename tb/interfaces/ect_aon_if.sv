@@ -13,7 +13,7 @@
 // are inputs so the same interface can observe DUT-generated events.
 // ------------------------------------------------------------------
 
-interface ect_aon_if(input logic clk, input logic rst_n);
+interface ect_aon_if(input logic clk, input logic clk_trace_aon, input logic rst_n);
 
   // CTI_AON local trigger events.
   // evt_in : subsystem/IP events into CTI_AON
@@ -48,6 +48,7 @@ interface ect_aon_if(input logic clk, input logic rst_n);
 
   modport drv_mp(
     input  clk,
+    input  clk_trace_aon,
     input  rst_n,
     output cti_aon_evt_in,
     output cti_m52_evt_in,
@@ -68,6 +69,7 @@ interface ect_aon_if(input logic clk, input logic rst_n);
 
   modport mon_mp(
     input clk,
+    input clk_trace_aon,
     input rst_n,
     input cti_aon_evt_in,
     input cti_aon_evt_out,

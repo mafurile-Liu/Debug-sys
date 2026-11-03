@@ -64,6 +64,8 @@
         return (index == 6) || (index == 7);
       ECT_AON_CTI_EVT_OUT:
         return (index == 7) || (index == 8) || (index == 14);
+      ECT_CTM_TOP_CH_IN:
+        return (index == 7) || (index == 8) || (index == 14);
       default: return 1'b0;
     endcase
   endfunction
@@ -79,6 +81,9 @@
       {ECT_AON_CTI_EVT_OUT, 7} : return vif.hifi_cti_in_ack;
       {ECT_AON_CTI_EVT_OUT, 8} : return vif.hifi_break_in_ack;
       {ECT_AON_CTI_EVT_OUT, 14}: return vif.tbu_pmusnapshot_ack;
+      {ECT_CTM_TOP_CH_IN,  7} : return vif.hifi_cti_in_ack;
+      {ECT_CTM_TOP_CH_IN,  8} : return vif.hifi_break_in_ack;
+      {ECT_CTM_TOP_CH_IN, 14} : return vif.tbu_pmusnapshot_ack;
       default: return 1'b0;
     endcase
   endfunction
@@ -93,6 +98,9 @@
       {ECT_AON_CTI_EVT_OUT, 7} : return ECT_PAIR_AON_CTI_HIFI_CTI_IN;
       {ECT_AON_CTI_EVT_OUT, 8} : return ECT_PAIR_AON_CTI_HIFI_BREAK_IN;
       {ECT_AON_CTI_EVT_OUT, 14}: return ECT_PAIR_AON_CTI_TBU;
+      {ECT_CTM_TOP_CH_IN,    7} : return ECT_PAIR_AON_CTI_HIFI_CTI_IN;
+      {ECT_CTM_TOP_CH_IN,    8} : return ECT_PAIR_AON_CTI_HIFI_BREAK_IN;
+      {ECT_CTM_TOP_CH_IN,   14}: return ECT_PAIR_AON_CTI_TBU;
       default: return ECT_PAIR_AON_CTI_HIFI_CTI_OUT;
     endcase
   endfunction
