@@ -110,7 +110,10 @@ class debug_ect_evtin6_7_hs_to_ch14_15 extends aon_base_test;
 
       handshake_seq.start(env.ect_agent.sequencer);
 
-      repeat (1200) @(posedge env.ect_cfg.vif.clk);
+      // Wait long enough for all no-event windows queued before this
+      // handshake to expire.  Otherwise the crosstalk window from route0 can
+      // remain active when route1 pulses channel15.
+      repeat (2200) @(posedge env.ect_cfg.vif.clk);
 
       `uvm_info("ECT_HS",
         $sformatf("event_in%0d handshake -> channel%0d completed", evt_idx, ch_idx),
