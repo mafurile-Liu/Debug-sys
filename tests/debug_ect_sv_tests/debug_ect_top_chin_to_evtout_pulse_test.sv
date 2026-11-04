@@ -7,7 +7,8 @@
 // The C case maps non-handshake channels directly:
 //   channel[i] -> CTI_AON event_out[i]
 // where i is one of 0..6 and 9..13.  This UVM test injects each selected
-// top-CTM channel and checks the corresponding event output.
+// top-CTM channel and checks the corresponding event output.  Outputs 0 and 5
+// are level-type sinks, so their checks do not wait for an automatic low.
 // ==========================================
 
 class debug_ect_top_chin_to_evtout_pulse extends aon_base_test;
@@ -16,6 +17,12 @@ class debug_ect_top_chin_to_evtout_pulse extends aon_base_test;
   local int unsigned pulse_out_idx[12] = '{
     0, 1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13
   };
+
+  // Per ECT event mapping, these AON CTI outputs are level-type sinks.
+  // A channel pulse asserts them, but the sink is expected to hold them high.
+  local function bit is_level_evt_out(int unsigned idx);
+    return (idx == 0) || (idx == 5);
+  endfunction
 
   function new(string name = "debug_ect_top_chin_to_evtout_pulse",
                uvm_component parent = null);
@@ -63,15 +70,26 @@ class debug_ect_top_chin_to_evtout_pulse extends aon_base_test;
         .expected_value(1'b0), .timeout_cycles(1000)
       );
 
-      // The directly mapped CTI_AON event output must pulse.
+      // The directly mapped CTI_AON event output must assert.  Pulse-type
+      // outputs must also return low.  Level-type outputs 0/5 are expected to
+      // remain high; a low transition would be an error.
       env.ect_scoreboard.expect_event(
         .loc(ECT_AON_CTI_EVT_OUT), .index(evt_idx),
         .expected_value(1'b1), .timeout_cycles(1000)
       );
-      env.ect_scoreboard.expect_event(
-        .loc(ECT_AON_CTI_EVT_OUT), .index(evt_idx),
-        .expected_value(1'b0), .timeout_cycles(1000)
-      );
+
+      if (is_level_evt_out(evt_idx)) begin
+        env.ect_scoreboard.expect_no_event(
+          .loc(ECT_AON_CTI_EVT_OUT), .index(evt_idx),
+          .forbidden_value(1'b0), .timeout_cycles(1200)
+        );
+      end
+      else begin
+        env.ect_scoreboard.expect_event(
+          .loc(ECT_AON_CTI_EVT_OUT), .index(evt_idx),
+          .expected_value(1'b0), .timeout_cycles(1000)
+        );
+      end
 
       // Only the selected top channel and AON channel input may pulse.
       for (ch = 0; ch < 16; ch++) begin
@@ -87,13 +105,22 @@ class debug_ect_top_chin_to_evtout_pulse extends aon_base_test;
         end
       end
 
-      // Only the selected AON event output may pulse.
+      // Only the selected AON event output may transition.  Level-type
+      // outputs can legitimately remain high from an earlier iteration, so
+      // crosstalk is checked as "no new high or low transition".
       for (out_idx = 0; out_idx < 15; out_idx++) begin
         if (out_idx != evt_idx) begin
           env.ect_scoreboard.expect_no_event(
             .loc(ECT_AON_CTI_EVT_OUT), .index(out_idx),
             .forbidden_value(1'b1), .timeout_cycles(1000)
           );
+
+          if (is_level_evt_out(out_idx)) begin
+            env.ect_scoreboard.expect_no_event(
+              .loc(ECT_AON_CTI_EVT_OUT), .index(out_idx),
+              .forbidden_value(1'b0), .timeout_cycles(1000)
+            );
+          end
         end
       end
 
