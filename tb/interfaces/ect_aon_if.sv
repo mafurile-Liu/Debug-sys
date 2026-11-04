@@ -32,6 +32,7 @@ interface ect_aon_if(input logic clk, input logic clk_trace_aon, input logic rst
   // CTM channel paths for CTI_M52.
   logic [3:0] ctm_m52_ch_in;
   logic [3:0] ctm_m52_ch_out;
+  logic [3:0] ctm_m52_ch_in_drv = '0;
 
   // CTM channel paths bridged to the top-level async CTM tree.
   logic [15:0] ctm_top_ch_in = '0;
@@ -58,7 +59,8 @@ interface ect_aon_if(input logic clk, input logic clk_trace_aon, input logic rst
     input  cti_aon_evt_out,
     input  cti_m52_evt_out,
     input  ctm_aon_ch_out,
-    input  ctm_m52_ch_out,
+    input ctm_m52_ch_out,
+    output ctm_m52_ch_in_drv,
     input  ctm_top_ch_out,
     input  hifi_cti_out_ack,
     input  hifi_break_out_ack,
@@ -79,6 +81,7 @@ interface ect_aon_if(input logic clk, input logic clk_trace_aon, input logic rst
     input ctm_aon_ch_out,
     input ctm_m52_ch_in,
     input ctm_m52_ch_out,
+    output ctm_m52_ch_in_drv,
     input ctm_top_ch_in,
     input ctm_top_ch_out,
     input hifi_cti_out_ack,

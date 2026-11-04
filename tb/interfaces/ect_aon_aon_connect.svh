@@ -162,6 +162,16 @@ assign ect_if.ctm_m52_ch_in =
 assign ect_if.ctm_m52_ch_out =
   sys_aon_pwr_wrap.u_sys_aon_top.u_aon_m52_wrapper.u_MIZAR.u_pdcore.u_core_wrapper.gen_cti.u_cti.ext_cti_chin_i;
 
+// ---------------- CTM M52 channel input: agent injection ----------------
+// Force only for dedicated ECT injection tests.  Normal CTM drivers remain
+// untouched when the plusarg is absent.
+initial begin
+  if ($test$plusargs("ECT_AON_ENABLE_SOURCE_FORCE")) begin
+    force sys_aon_pwr_wrap.u_sys_aon_top.u_aon_m52_wrapper.u_MIZAR.u_pdcore.u_core_wrapper.gen_cti.u_cti.ext_cti_chin_i =
+      ect_if.ctm_m52_ch_in_drv;
+  end
+end
+
 assign ect_if.ctm_top_ch_out =
   sys_aon_pwr_wrap.u_sys_aon_top.u_sys_dbg_aon.u_ect_dbg_aon.ctm_channel_out[47:32];
 

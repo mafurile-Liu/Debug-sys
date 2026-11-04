@@ -66,6 +66,7 @@
         sample_loc(ECT_CTM_AON_CH_OUT);
         sample_loc(ECT_CTM_M52_CH_IN);
         sample_loc(ECT_CTM_M52_CH_OUT);
+        sample_loc(ECT_CTM_M52_CH_IN_DRV);
         sample_loc(ECT_CTM_TOP_CH_IN);
         sample_loc(ECT_CTM_TOP_CH_OUT);
       end

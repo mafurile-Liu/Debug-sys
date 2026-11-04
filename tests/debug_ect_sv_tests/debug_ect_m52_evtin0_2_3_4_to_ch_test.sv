@@ -1,25 +1,22 @@
-`ifndef DEBUG_ECT_M52_EVTIN_TO_EVTOUT_TEST_SV
-`define DEBUG_ECT_M52_EVTIN_TO_EVTOUT_TEST_SV
+`ifndef debug_ect_m52_evtin0_2_3_4_to_ch_TEST_SV
+`define debug_ect_m52_evtin0_2_3_4_to_ch_TEST_SV
 
 // ==========================================
-// M52 CTI event_in -> channel -> event_out test
+// M52 CTI event-in route test group 0
 // ==========================================
-// The C case programs M52 CTI through its AHB-AP:
-//   event_in[0] -> channel[0] -> event_out[0]
-//   event_in[2] -> channel[1] -> event_out[1]
-//   event_in[3] -> channel[2] -> event_out[2]
-//   event_in[4] -> channel[3] -> event_out[3]
-//
-// This test injects the source trigger and checks the selected channel and
-// output, plus crosstalk on the other M52 channels/outputs.
+// Routes programmed by C:
+  event_in[0] -> channel[0]
+  event_in[2] -> channel[1]
+  event_in[3] -> channel[2]
+  event_in[4] -> channel[3]
+
+This case checks only the input-to-channel path; no output route is enabled.
 // ==========================================
 
-class debug_ect_m52_evtin_to_evtout extends aon_base_test;
-  `uvm_component_utils(debug_ect_m52_evtin_to_evtout)
+class debug_ect_m52_evtin0_2_3_4_to_ch extends aon_base_test;
+  `uvm_component_utils(debug_ect_m52_evtin0_2_3_4_to_ch)
 
-  local int unsigned m52_evt_in_idx[4] = '{0, 2, 3, 4};
-
-  function new(string name = "debug_ect_m52_evtin_to_evtout",
+  function new(string name = "debug_ect_m52_evtin0_2_3_4_to_ch",
                uvm_component parent = null);
     super.new(name, parent);
   endfunction
@@ -31,13 +28,14 @@ class debug_ect_m52_evtin_to_evtout extends aon_base_test;
     int unsigned ch_idx;
     int unsigned ch;
     int unsigned out_idx;
+    int unsigned m52_evt_in_idx[4] = '{0, 2, 3, 4};
 
     if (env.ect_scoreboard == null) begin
-      `uvm_fatal("ECT_M52", "AON ECT scoreboard is not available")
+      `uvm_fatal("ECT_M52_EVTIN", "AON ECT scoreboard is not available")
     end
 
     if (!$test$plusargs("ECT_AON_ENABLE_SOURCE_FORCE")) begin
-      `uvm_fatal("ECT_M52",
+      `uvm_fatal("ECT_M52_EVTIN",
         "Missing +ECT_AON_ENABLE_SOURCE_FORCE; M52 source event cannot enter DUT")
     end
 
@@ -77,15 +75,13 @@ class debug_ect_m52_evtin_to_evtout extends aon_base_test;
         .expected_value(1'b0), .timeout_cycles(1000)
       );
 
-      // The directly mapped M52 CTI event output must pulse.
-      env.ect_scoreboard.expect_event(
-        .loc(ECT_M52_CTI_EVT_OUT), .index(ch_idx),
-        .expected_value(1'b1), .timeout_cycles(1000)
-      );
-      env.ect_scoreboard.expect_event(
-        .loc(ECT_M52_CTI_EVT_OUT), .index(ch_idx),
-        .expected_value(1'b0), .timeout_cycles(1000)
-      );
+      // This event-in-only case does not program an output route.
+      for (out_idx = 0; out_idx < 8; out_idx++) begin
+        env.ect_scoreboard.expect_no_event(
+          .loc(ECT_M52_CTI_EVT_OUT), .index(out_idx),
+          .forbidden_value(1'b1), .timeout_cycles(1000)
+        );
+      end
 
       // Crosstalk: only the selected source channel and return channel may
       // pulse.
@@ -102,16 +98,6 @@ class debug_ect_m52_evtin_to_evtout extends aon_base_test;
         end
       end
 
-      // Crosstalk: no other M52 event output may pulse.
-      for (out_idx = 0; out_idx < 8; out_idx++) begin
-        if (out_idx != ch_idx) begin
-          env.ect_scoreboard.expect_no_event(
-            .loc(ECT_M52_CTI_EVT_OUT), .index(out_idx),
-            .forbidden_value(1'b1), .timeout_cycles(1000)
-          );
-        end
-      end
-
       pulse_seq = ect_aon_pulse_sequence::type_id::create("pulse_seq");
       if (!pulse_seq.randomize() with {
             loc          == ECT_M52_CTI_EVT_IN;
@@ -119,7 +105,7 @@ class debug_ect_m52_evtin_to_evtout extends aon_base_test;
             value        == 1'b1;
             pulse_cycles == 2;
           }) begin
-        `uvm_error("ECT_M52",
+        `uvm_error("ECT_M52_EVTIN",
           $sformatf("Failed to randomize M52 event_in%0d pulse sequence", evt_idx))
       end
 
@@ -127,9 +113,9 @@ class debug_ect_m52_evtin_to_evtout extends aon_base_test;
 
       repeat (1200) @(posedge env.ect_cfg.vif.clk);
 
-      `uvm_info("ECT_M52",
-        $sformatf("M52 event_in%0d -> channel%0d -> event_out%0d completed",
-                  evt_idx, ch_idx, ch_idx), UVM_MEDIUM)
+      `uvm_info("ECT_M52_EVTIN",
+        $sformatf("M52 event_in%0d -> channel%0d completed", evt_idx, ch_idx),
+        UVM_MEDIUM)
     end
   endtask
 endclass

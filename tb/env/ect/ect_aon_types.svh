@@ -16,7 +16,8 @@
     ECT_AON_ACK_HIFI_BREAK_OUT = 11,
     ECT_AON_ACK_HIFI_CTI_IN   = 12,
     ECT_AON_ACK_HIFI_BREAK_IN = 13,
-    ECT_AON_ACK_TBU           = 14
+    ECT_AON_ACK_TBU           = 14,
+    ECT_CTM_M52_CH_IN_DRV     = 15
   } ect_aon_loc_e;
 
   typedef enum int unsigned {
@@ -44,6 +45,7 @@
       ECT_CTM_AON_CH_OUT  : return 16;
       ECT_CTM_M52_CH_IN   : return 4;
       ECT_CTM_M52_CH_OUT  : return 4;
+      ECT_CTM_M52_CH_IN_DRV : return 4;
       ECT_CTM_TOP_CH_IN   : return 16;
       ECT_CTM_TOP_CH_OUT  : return 16;
       ECT_AON_ACK_HIFI_CTI_OUT  : return 1;
@@ -132,6 +134,7 @@
       ECT_CTM_AON_CH_OUT  : return vif.ctm_aon_ch_out[index];
       ECT_CTM_M52_CH_IN   : return vif.ctm_m52_ch_in[index];
       ECT_CTM_M52_CH_OUT  : return vif.ctm_m52_ch_out[index];
+      ECT_CTM_M52_CH_IN_DRV : return vif.ctm_m52_ch_in_drv[index];
       ECT_CTM_TOP_CH_IN   : return vif.ctm_top_ch_in[index];
       ECT_CTM_TOP_CH_OUT  : return vif.ctm_top_ch_out[index];
       ECT_AON_ACK_HIFI_CTI_OUT  : return vif.hifi_cti_out_ack;
@@ -154,6 +157,7 @@
       ECT_M52_CTI_EVT_IN  : vif.cti_m52_evt_in[index]  = value;
       ECT_CTM_AON_CH_IN   : vif.ctm_aon_ch_in[index]   = value;
       ECT_CTM_M52_CH_IN   : vif.ctm_m52_ch_in[index]   = value;
+      ECT_CTM_M52_CH_IN_DRV : vif.ctm_m52_ch_in_drv[index] = value;
       ECT_CTM_TOP_CH_IN   : vif.ctm_top_ch_in[index]   = value;
       default: `uvm_warning("ECT_AON_DRV",
         $sformatf("Location %s is not an injection path", loc.name()))
