@@ -2,13 +2,13 @@
 `define DEBUG_ECT_EVT_IN0_TO9_DIRECT_MAP_TEST_SV
 
 // ==========================================
-// AON ECT event_in[0..9] direct mapping test
+// AON ECT non-handshake event_in direct mapping test
 // ==========================================
 // The C case programs:
 //   event_in[i] -> channel[i]
 //   channel[i]  -> event_out[1] / ETF.trigin
 //
-// This test injects event_in[0..9] one at a time.  For each event it checks:
+// This test injects non-handshake event_in entries one at a time.  For each event it checks:
 //   1. the source event pulse
 //   2. the directly mapped CTI_AON channel output
 //   3. no loopback channel return into CTI_AON
@@ -48,6 +48,11 @@ class debug_ect_evt_in0_to9_direct_map extends aon_base_test;
     repeat (2000) @(posedge env.ect_cfg.vif.clk);
 
     for (evt_idx = 0; evt_idx < 10; evt_idx++) begin
+      // event_in6/7 are handshake triggers.  They are covered by the
+      // dedicated evtin6_hs_to_ch14 and evtin7_hs_to_ch15 cases.
+      if ((evt_idx == 6) || (evt_idx == 7)) begin
+        continue;
+      end
       // Source request and directly mapped CTI_AON channel output.
       env.ect_scoreboard.expect_event(
         .loc(ECT_AON_CTI_EVT_IN), .index(evt_idx),

@@ -1,12 +1,12 @@
 /*
  * debug_ect_evt_in0_to9_direct_map/main.cpp
  *
- * Program direct event-in to CTM-channel mappings for AON CTI inputs 0..9:
+ * Program direct mappings for AON CTI non-handshake inputs 0..5/8..9:
  *
- *   CTI_AON event_in[i] -> channel[i]
+ *   CTI_AON non-handshake event_in[i] -> channel[i]
  *   channel[i]          -> CTI_AON event_out[1] / ETF.trigin
  *
- * This lets the UVM case inject event_in[0..9] one at a time and check that
+ * This lets the UVM case inject non-handshake event_in entries one at a time and check that
  * only the directly mapped channel and output fire.
  */
 
@@ -18,7 +18,7 @@
 #define ECT_DIRECT_MIN_EVT      0U
 #define ECT_DIRECT_MAX_EVT      9U
 #define ECT_DIRECT_OUT          1U
-#define ECT_DIRECT_CH_MASK      0x3FFU
+#define ECT_DIRECT_CH_MASK      0x33FU
 
 static void ect_direct_write(uint32_t offset, uint32_t value)
 {
@@ -43,8 +43,14 @@ static void ect_direct_configure(void)
     c_uvm_info("ect direct map: CONTROL before config = 0x%08x", ctrl);
     ect_direct_write(CTI_CONTROL, 0U);
 
-    /* One input event maps directly to the same channel index. */
+    /*
+     * event_in6/7 are handshake triggers and are covered by dedicated
+     * handshake cases.  Do not pulse them here.
+     */
     for (i = ECT_DIRECT_MIN_EVT; i <= ECT_DIRECT_MAX_EVT; ++i) {
+        if ((i == 6U) || (i == 7U)) {
+            continue;
+        }
         ect_direct_write(CTI_INEN(i), (1U << i));
     }
 
@@ -52,7 +58,7 @@ static void ect_direct_configure(void)
     outen = ECT_DIRECT_CH_MASK;
     ect_direct_write(CTI_OUTEN(ECT_DIRECT_OUT), outen);
 
-    /* Only channels 0..9 are allowed through the gate. */
+    /* Only non-handshake channels 0..5/8..9 pass the gate. */
     gate = ECT_DIRECT_CH_MASK;
     ect_direct_write(CTI_GATE, gate);
 
@@ -72,6 +78,9 @@ static void ect_direct_configure(void)
     }
 
     for (i = ECT_DIRECT_MIN_EVT; i <= ECT_DIRECT_MAX_EVT; ++i) {
+        if ((i == 6U) || (i == 7U)) {
+            continue;
+        }
         inen = ect_direct_read(CTI_INEN(i));
         if (inen != (1U << i)) {
             c_uvm_error("ect direct map: INEN%0d mismatch = 0x%08x", i, inen);
@@ -86,6 +95,6 @@ CPU_TEST_START
 
     ect_direct_configure();
 
-    c_uvm_info("%s", "ect direct map: evt_in0..9 -> ch0..9 -> ETF.trigin configured");
+    c_uvm_info("%s", "ect direct map: non-handshake evt_in0..5/8..9 -> ch0..5/8..9 -> ETF.trigin configured");
     C_PASS();
 CPU_TEST_END
