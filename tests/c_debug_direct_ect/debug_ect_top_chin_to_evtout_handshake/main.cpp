@@ -115,7 +115,6 @@ CPU_TEST_START
 
     // --------------- clks cfg finish ---------------- //
 
-    hifi_apbap_config();
     hifi_breakin_enable();
     tbu_pmcg_configure();
     ect_top_hs_configure();
