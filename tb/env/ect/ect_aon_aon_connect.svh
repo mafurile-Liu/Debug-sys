@@ -163,12 +163,17 @@ assign ect_if.ctm_m52_ch_out =
   sys_aon_pwr_wrap.u_sys_aon_top.u_aon_m52_wrapper.u_MIZAR.u_pdcore.u_core_wrapper.gen_cti.u_cti.ext_cti_chin_i;
 
 // ---------------- CTM M52 channel input: agent injection ----------------
+// VCS cannot resolve an interface variable directly in the RHS of some
+// hierarchical force statements.  Use a tb_top-local intermediate signal.
+logic [3:0] ect_m52_ch_in_force;
+assign ect_m52_ch_in_force = ect_if.ctm_m52_ch_in_drv;
+
 // Force only for dedicated ECT injection tests.  Normal CTM drivers remain
 // untouched when the plusarg is absent.
 initial begin
   if ($test$plusargs("ECT_AON_ENABLE_SOURCE_FORCE")) begin
     force sys_aon_pwr_wrap.u_sys_aon_top.u_aon_m52_wrapper.u_MIZAR.u_pdcore.u_core_wrapper.gen_cti.u_cti.ext_cti_chin_i =
-      ect_if.ctm_m52_ch_in_drv;
+      ect_m52_ch_in_force;
   end
 end
 

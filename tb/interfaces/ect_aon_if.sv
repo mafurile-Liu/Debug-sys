@@ -81,7 +81,7 @@ interface ect_aon_if(input logic clk, input logic clk_trace_aon, input logic rst
     input ctm_aon_ch_out,
     input ctm_m52_ch_in,
     input ctm_m52_ch_out,
-    output ctm_m52_ch_in_drv,
+    input ctm_m52_ch_in_drv,
     input ctm_top_ch_in,
     input ctm_top_ch_out,
     input hifi_cti_out_ack,
