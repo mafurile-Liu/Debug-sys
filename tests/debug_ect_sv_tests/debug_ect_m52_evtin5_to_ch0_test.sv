@@ -5,10 +5,10 @@
 // M52 CTI event-in route test for event_in5
 // ==========================================
 // Route programmed by C:
-  event_in[5] -> channel[0]
+//   event_in[5] -> channel[0]
 
-This case covers the remaining connected M52 input trigger.  It checks only
-the input-to-channel path; no output route is enabled.
+// This case covers the remaining connected M52 input trigger.  It checks only
+// the input-to-channel path; no output route is enabled.
 // ==========================================
 
 class debug_ect_m52_evtin5_to_ch0 extends aon_base_test;

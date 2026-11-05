@@ -5,12 +5,12 @@
 // M52 CTI event-in route test group 0
 // ==========================================
 // Routes programmed by C:
-  event_in[0] -> channel[0]
-  event_in[2] -> channel[1]
-  event_in[3] -> channel[2]
-  event_in[4] -> channel[3]
+//   event_in[0] -> channel[0]
+//   event_in[2] -> channel[1]
+//   event_in[3] -> channel[2]
+//   event_in[4] -> channel[3]
 
-This case checks only the input-to-channel path; no output route is enabled.
+// This case checks only the input-to-channel path; no output route is enabled.
 // ==========================================
 
 class debug_ect_m52_evtin0_2_3_4_to_ch extends aon_base_test;

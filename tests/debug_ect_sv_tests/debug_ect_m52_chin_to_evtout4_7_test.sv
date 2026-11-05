@@ -5,10 +5,10 @@
 // M52 CTI channel-to-output route test group 1
 // ==========================================
 // Routes programmed by C:
-  channel[0] -> event_out[4]
-  channel[1] -> event_out[5]
-  channel[2] -> event_out[6]
-  channel[3] -> event_out[7]
+//   channel[0] -> event_out[4]
+//   channel[1] -> event_out[5]
+//   channel[2] -> event_out[6]
+//   channel[3] -> event_out[7]
 // ==========================================
 
 class debug_ect_m52_chin_to_evtout4_7 extends aon_base_test;
