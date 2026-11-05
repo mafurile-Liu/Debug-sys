@@ -31,9 +31,9 @@ class debug_ect_m52_chin_to_evtout4_7 extends aon_base_test;
       `uvm_fatal("ECT_M52_EVTOUT", "AON ECT scoreboard is not available")
     end
 
-    if (!$test$plusargs("ECT_AON_ENABLE_SOURCE_FORCE")) begin
+    if (!$test$plusargs("ECT_M52_CH_IN_FORCE")) begin
       `uvm_fatal("ECT_M52_EVTOUT",
-        "Missing +ECT_AON_ENABLE_SOURCE_FORCE; M52 channel input cannot enter DUT")
+        "Missing +ECT_M52_CH_IN_FORCE; M52 channel input cannot be injected")
     end
 
     wait(c_test_finish == 1);
