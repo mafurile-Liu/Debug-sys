@@ -17,31 +17,6 @@
 #define ECT_TOP_HANDSHAKE_CH_MASK   0x4180U
 
 /*
- * HiFi Xtensa debug-module OCD registers (Xtensa Debug Guide, OCD registers).
- * The HIFI debug module is reached through AP1 apb_ap_apbic.  The internal
- * AP register window matches the existing AON AP scan view at 0x4A00_3000;
- * CSW/TAR/DRW offsets are the MEM-AP page-1 offsets.
- */
-#define HIFI_APB_AP_BASE           0x4A003000U
-#define HIFI_APB_AP_CSW            (HIFI_APB_AP_BASE + 0xD00U)
-#define HIFI_APB_AP_TAR            (HIFI_APB_AP_BASE + 0xD04U)
-#define HIFI_APB_AP_DRW            (HIFI_APB_AP_BASE + 0xD0CU)
-#define HIFI_APB_AP_IDR            (HIFI_APB_AP_BASE + 0xDFCU)
-
-/* APB-AP CSW: non-secure privileged data, single TAR increment, 32-bit. */
-#define HIFI_APB_AP_CSW_PROT       (3U << 28)
-#define HIFI_APB_AP_CSW_ADDRINC    (1U << 4)
-#define HIFI_APB_AP_CSW_SIZE32     2U
-#define HIFI_APB_AP_CSW_VAL        (HIFI_APB_AP_CSW_PROT | \
-                                    HIFI_APB_AP_CSW_ADDRINC | \
-                                    HIFI_APB_AP_CSW_SIZE32)
-
-/* HiFi Xtensa debug-module OCD registers (Xtensa Debug Guide, OCD registers). */
-#define HIFI_DEBUG_BASE            HIFI_TRAX_BASE
-#define HIFI_DCRSET                (HIFI_DEBUG_BASE + 0x200CU)
-#define HIFI_DCR_BREAKIN_EN        (1U << 16)
-
-/*
  * TBU MMU L1 PMCG registers.  Arm MMU L1 TRM places PMCG page0 at offset
  * 0x02000.  SMMUv3 architecture offsets from SMMUv3_PMCG:
  *   CFGR = 0xE00, CAPR = 0xD88, CR = 0xE04.
@@ -116,55 +91,6 @@ static void ect_top_hs_configure(void)
     }
 }
 
-static void hifi_ap_config(void)
-{
-    uint32_t idr = R32(HIFI_APB_AP_IDR);
-
-    c_uvm_info("hifi apb-ap IDR=0x%08x", idr);
-    if (idr == 0U) {
-        c_uvm_error("%s", "hifi apb-ap IDR is zero, AP is missing");
-        return;
-    }
-
-    W32(HIFI_APB_AP_CSW, HIFI_APB_AP_CSW_VAL);
-}
-
-static void hifi_ap_write(uint32_t addr, uint32_t data)
-{
-    W32(HIFI_APB_AP_TAR, addr);
-    W32(HIFI_APB_AP_DRW, data);
-}
-
-static uint32_t hifi_ap_read(uint32_t addr)
-{
-    W32(HIFI_APB_AP_TAR, addr);
-    return R32(HIFI_APB_AP_DRW);
-}
-
-static void hifi_breakin_enable(void)
-{
-    uint32_t traxid;
-
-    /*
-     * Sanity-check the AP path through the HIFI debug module before writing
-     * an OCD register.  TRAXID is read-only and safe to read.
-     */
-    traxid = hifi_ap_read(HIFI_DEBUG_BASE);
-    c_uvm_info("hifi TRAXID=0x%08x", traxid);
-    if (traxid == 0U) {
-        c_uvm_error("%s", "hifi TRAXID is zero, AP path is not working");
-    }
-
-    /*
-     * DCRSET is a bit-set register; writing bit16 sets DCR.BreakInEn without a
-     * read-modify-write.  DCRSET itself has no useful readback, so there is no
-     * readback here.
-     */
-    hifi_ap_write(HIFI_DCRSET, HIFI_DCR_BREAKIN_EN);
-    c_uvm_info("hifi BreakInEn: DCRSET=0x%08x value=0x%08x",
-               HIFI_DCRSET, HIFI_DCR_BREAKIN_EN);
-}
-
 static void tbu_pmcg_configure(void)
 {
 #if (ECT_TBU_BASE != 0U)
@@ -189,6 +115,7 @@ CPU_TEST_START
 
     // --------------- clks cfg finish ---------------- //
 
+    hifi_apbap_config();
     hifi_breakin_enable();
     tbu_pmcg_configure();
     ect_top_hs_configure();

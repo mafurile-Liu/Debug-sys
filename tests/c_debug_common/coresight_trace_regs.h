@@ -42,6 +42,28 @@
 #define HIFI_TRAX_BASE       0x4A240000U
 #define HIFI_TRACE_FUNNEL_SLAVE_PORT 3U
 
+/* HiFi is reached through AP1 apb_ap_apbic.  The internal AP window comes
+ * from dbg_address_mapping.xlsx.  These are APB-AP page-1 offsets used by
+ * the existing AON AP register view.
+ */
+#define HIFI_APB_AP_BASE     0x4A003000U
+#define HIFI_APB_AP_CSW      (HIFI_APB_AP_BASE + 0xD00U)
+#define HIFI_APB_AP_TAR      (HIFI_APB_AP_BASE + 0xD04U)
+#define HIFI_APB_AP_DRW      (HIFI_APB_AP_BASE + 0xD0CU)
+#define HIFI_APB_AP_IDR      (HIFI_APB_AP_BASE + 0xDFCU)
+#define HIFI_APB_AP_CSW_PROT (3U << 28)
+#define HIFI_APB_AP_CSW_ADDRINC (1U << 4)
+#define HIFI_APB_AP_CSW_SIZE32  2U
+#define HIFI_APB_AP_CSW_VAL  (HIFI_APB_AP_CSW_PROT | \
+                              HIFI_APB_AP_CSW_ADDRINC | \
+                              HIFI_APB_AP_CSW_SIZE32)
+
+/* Xtensa OCD registers used by ECT handshake sink setup.  Source: Xtensa
+ * Debug Guide, OCD Registers and DCR Register Fields.
+ */
+#define HIFI_DCRSET          (HIFI_TRAX_BASE + 0x200CU)
+#define HIFI_DCR_BREAKIN_EN  (1U << 16)
+
 /* Xtensa TRAX register offsets. */
 #define HIFI_TRAXCTRL        0x0004U
 #define HIFI_TRAXSTAT        0x0008U

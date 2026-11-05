@@ -72,6 +72,52 @@ uint32_t hifi_trace_atb_status(void)
 }
 
 /* ----------------------------------------------------------------------
+ * HiFi APB-AP indirect access helpers.  The HIFI debug module is reached
+ * through AP1 apb_ap_apbic.  CSW/TAR/DRW then access HIFI debug-module
+ * addresses such as the Xtensa OCD registers.
+ * ---------------------------------------------------------------------- */
+void hifi_apbap_config(void)
+{
+    W32(HIFI_APB_AP_CSW, HIFI_APB_AP_CSW_VAL);
+}
+
+uint32_t hifi_apbap_idr(void)
+{
+    return R32(HIFI_APB_AP_IDR);
+}
+
+void hifi_apbap_write(uint32_t addr, uint32_t data)
+{
+    W32(HIFI_APB_AP_TAR, addr);
+    W32(HIFI_APB_AP_DRW, data);
+}
+
+uint32_t hifi_apbap_read(uint32_t addr)
+{
+    W32(HIFI_APB_AP_TAR, addr);
+    return R32(HIFI_APB_AP_DRW);
+}
+
+void hifi_breakin_enable(void)
+{
+    uint32_t traxid;
+
+    traxid = hifi_apbap_read(HIFI_TRAX_BASE);
+    c_uvm_info("hifi TRAXID=0x%08x", traxid);
+    if (traxid == 0U) {
+        c_uvm_error("%s", "hifi TRAXID is zero, AP path is not working");
+    }
+
+    /*
+     * DCRSET is a bit-set register.  Writing bit16 sets DCR.BreakInEn without
+     * a read-modify-write.  DCRSET has no useful readback.
+     */
+    hifi_apbap_write(HIFI_DCRSET, HIFI_DCR_BREAKIN_EN);
+    c_uvm_info("hifi BreakInEn: DCRSET=0x%08x value=0x%08x",
+               HIFI_DCRSET, HIFI_DCR_BREAKIN_EN);
+}
+
+/* ----------------------------------------------------------------------
  * M52 AHB-AP indirect access helpers.
  * The AP registers are accessed through the internal debug-APB view at
  * 0x4A00_5000. CSW/TAR/DRW then access M52 PPB addresses (0xE000_xxxx).
