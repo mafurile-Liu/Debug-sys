@@ -16,21 +16,6 @@
 #define ECT_TOP_HANDSHAKE_CTI_BASE  AON_CTI_BASE
 #define ECT_TOP_HANDSHAKE_CH_MASK   0x4180U
 
-/*
- * TBU MMU L1 PMCG registers.  Arm MMU L1 TRM places PMCG page0 at offset
- * 0x02000.  SMMUv3 architecture offsets from SMMUv3_PMCG:
- *   CFGR = 0xE00, CAPR = 0xD88, CR = 0xE04.
- */
-#ifndef ECT_TBU_BASE
-#define ECT_TBU_BASE               0x00000000U /* TODO: fill TBU base later */
-#endif
-#define TBU_PMCG_PAGE0            0x02000U
-#define TBU_PMCG_CFGR             (TBU_PMCG_PAGE0 + 0x0E00U)
-#define TBU_PMCG_CAPR             (TBU_PMCG_PAGE0 + 0x0D88U)
-#define TBU_PMCG_CR               (TBU_PMCG_PAGE0 + 0x0E04U)
-#define SMMU_PMCG_CFGR_CAPTURE     (1U << 22)
-#define SMMU_PMCG_CR_ENABLE        (1U << 0)
-
 static void ect_top_hs_write(uint32_t offset, uint32_t value)
 {
     W32((uintptr_t)(ECT_TOP_HANDSHAKE_CTI_BASE + offset), value);
@@ -91,32 +76,12 @@ static void ect_top_hs_configure(void)
     }
 }
 
-static void tbu_pmcg_configure(void)
-{
-#if (ECT_TBU_BASE != 0U)
-    uint32_t cfgr = R32(ECT_TBU_BASE + TBU_PMCG_CFGR);
-
-    if ((cfgr & SMMU_PMCG_CFGR_CAPTURE) == 0U) {
-        c_uvm_error("tbu pmcg: CAPTURE not supported, CFGR=0x%08x", cfgr);
-        return;
-    }
-
-    /* The wired req already performs CAPR.CAPTURE; enable the PMCG counters. */
-    W32(ECT_TBU_BASE + TBU_PMCG_CR, SMMU_PMCG_CR_ENABLE);
-    c_uvm_info("tbu pmcg: CFGR=0x%08x CR enabled, CAPR=0x%08x",
-               cfgr, TBU_PMCG_CAPR);
-#else
-    c_uvm_info("%s", "tbu pmcg: ECT_TBU_BASE is reserved; skipping TBU setup");
-#endif
-}
-
 CPU_TEST_START
     OPEN_DEBUG_CRG();
 
     // --------------- clks cfg finish ---------------- //
 
     hifi_breakin_enable();
-    tbu_pmcg_configure();
     ect_top_hs_configure();
 
     c_uvm_info("%s", "ect top handshake: top ch7/8/14 -> AON handshake outputs configured");
