@@ -171,7 +171,7 @@ assign ect_m52_ch_in_force = ect_if.ctm_m52_ch_in_drv;
 // Force only for dedicated ECT injection tests.  Normal CTM drivers remain
 // untouched when the plusarg is absent.
 initial begin
-  if ($test$plusargs("ECT_AON_ENABLE_SOURCE_FORCE")) begin
+  if ($test$plusargs("ECT_M52_CH_IN_FORCE")) begin
     force sys_aon_pwr_wrap.u_sys_aon_top.u_aon_m52_wrapper.u_MIZAR.u_pdcore.u_core_wrapper.gen_cti.u_cti.ext_cti_chin_i =
       ect_m52_ch_in_force;
   end
