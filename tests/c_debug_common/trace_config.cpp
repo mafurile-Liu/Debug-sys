@@ -73,15 +73,39 @@ uint32_t hifi_trace_atb_status(void)
 
 void hifi_breakin_enable(void)
 {
+    uint32_t dsr;
+    uint32_t dcr;
+    uint32_t pwrstat;
+
     /*
-     * DCRSET is a bit-set register.  Writing bit16 sets DCR.BreakInEn without
-     * a read-modify-write.  This register is in the same HIFI debug-APB
-     * config window as TRAX, so CPU-side W32 is used here.  DCRSET has no
-     * useful readback.
+     * DSR.bit31 reads as one only when the HIFI debug module is powered and
+     * accessible.  If this is zero, the APB base or HIFI clock/reset config is
+     * wrong and BreakInAck cannot be expected.
+     */
+    dsr = R32(HIFI_DSR);
+    c_uvm_info("hifi DSR=0x%08x", dsr);
+    if ((dsr & HIFI_DSR_DEBUG_POWER) == 0U) {
+        c_uvm_error("hifi DSR=0x%08x: debug module is not powered/accessible",
+                    dsr);
+        return;
+    }
+
+    /*
+     * DCRSET is a bit-set register and is also a readable view of DCR.
+     * Writing bit16 sets DCR.BreakInEn; read back to prove the write landed.
      */
     W32(HIFI_DCRSET, HIFI_DCR_BREAKIN_EN);
-    c_uvm_info("hifi BreakInEn: DCRSET=0x%08x value=0x%08x",
-               HIFI_DCRSET, HIFI_DCR_BREAKIN_EN);
+    dcr = R32(HIFI_DCRSET);
+    c_uvm_info("hifi BreakInEn: DCR=0x%08x", dcr);
+    if ((dcr & HIFI_DCR_BREAKIN_EN) == 0U) {
+        c_uvm_error("hifi BreakInEn readback failed: DCR=0x%08x", dcr);
+    }
+
+    pwrstat = R32(HIFI_PWRSTAT);
+    c_uvm_info("hifi PWRSTAT=0x%08x (DebugWasReset=%0d CoreWasReset=%0d)",
+               pwrstat,
+               (pwrstat & HIFI_PWRSTAT_DEBUG_WAS_RESET) != 0U,
+               (pwrstat & HIFI_PWRSTAT_CORE_WAS_RESET) != 0U);
 }
 /* ----------------------------------------------------------------------
  * M52 AHB-AP indirect access helpers.

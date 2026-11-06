@@ -45,6 +45,11 @@
 
 #define HIFI_DCRSET          (HIFI_TRAX_BASE + 0x200CU)
 #define HIFI_DCR_BREAKIN_EN  (1U << 16)
+#define HIFI_DSR             (HIFI_TRAX_BASE + 0x2010U)
+#define HIFI_DSR_DEBUG_POWER (1U << 31)
+#define HIFI_PWRSTAT         (HIFI_TRAX_BASE + 0x3024U)
+#define HIFI_PWRSTAT_DEBUG_WAS_RESET (1U << 28)
+#define HIFI_PWRSTAT_CORE_WAS_RESET  (1U << 16)
 
 /* Xtensa TRAX register offsets. */
 #define HIFI_TRAXCTRL        0x0004U
