@@ -99,7 +99,14 @@ void aon_cti_ctm_config(uint32_t channel,
 /* Software-pulse a CTM channel through CTI APPPULSE. */
 void aon_cti_ctm_pulse(uint32_t channel);
 
-/* Enable Xtensa DCR.BreakInEn over the HIFI debug-APB config bus. */
+/* HiFi APB-AP indirect access helpers.  CSW/TAR/DRW then access HIFI
+ * debug-module addresses such as the Xtensa OCD registers. */
+void hifi_apbap_config(void);
+uint32_t hifi_apbap_idr(void);
+void hifi_apbap_write(uint32_t addr, uint32_t data);
+uint32_t hifi_apbap_read(uint32_t addr);
+
+/* Enable Xtensa DCR.BreakInEn through the HIFI APB-AP. */
 void hifi_breakin_enable(void);
 
 /* Start HiFi5s TRAX trace output on ATB. */
