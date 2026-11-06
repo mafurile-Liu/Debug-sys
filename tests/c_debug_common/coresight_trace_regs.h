@@ -42,26 +42,10 @@
 #define HIFI_TRAX_BASE       0x4A240000U
 #define HIFI_TRACE_FUNNEL_SLAVE_PORT 3U
 
-
 #define HIFI_DCRSET          (HIFI_TRAX_BASE + 0x200CU)
 #define HIFI_DCR_BREAKIN_EN  (1U << 16)
 #define HIFI_DSR             (HIFI_TRAX_BASE + 0x2010U)
 
-/* HIFI debug module is reached through AP1 apb_ap_apbic.  The internal AP
- * register window is 0x4A00_3000.  CSW/TAR/DRW then target HIFI debug-module
- * addresses such as 0x4A24_200C.
- */
-#define HIFI_APB_AP_BASE     0x4A003000U
-#define HIFI_APB_AP_CSW      (HIFI_APB_AP_BASE + 0xD00U)
-#define HIFI_APB_AP_TAR      (HIFI_APB_AP_BASE + 0xD04U)
-#define HIFI_APB_AP_DRW      (HIFI_APB_AP_BASE + 0xD0CU)
-#define HIFI_APB_AP_IDR      (HIFI_APB_AP_BASE + 0xDFCU)
-#define HIFI_APB_AP_CSW_PROT (3U << 28)
-#define HIFI_APB_AP_CSW_ADDRINC (1U << 4)
-#define HIFI_APB_AP_CSW_SIZE32  2U
-#define HIFI_APB_AP_CSW_VAL  (HIFI_APB_AP_CSW_PROT | \
-                              HIFI_APB_AP_CSW_ADDRINC | \
-                              HIFI_APB_AP_CSW_SIZE32)
 #define HIFI_DSR_DEBUG_POWER (1U << 31)
 #define HIFI_PWRSTAT         (HIFI_TRAX_BASE + 0x3024U)
 #define HIFI_PWRSTAT_DEBUG_WAS_RESET (1U << 28)

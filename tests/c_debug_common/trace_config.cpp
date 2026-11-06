@@ -44,16 +44,16 @@ void hifi_trace_atb_start(uint8_t atid, uint8_t smper, bool enable_trace_ram)
 
     ctrl |= TRAXCTRL_TREN;
 
-    hifi_apbap_write(HIFI_TRAX_BASE + HIFI_TRAXCTRL, 0U);
-    hifi_apbap_write(HIFI_TRAX_BASE + HIFI_TRAXADDR, 0U);
-    hifi_apbap_write(HIFI_TRAX_BASE + HIFI_TRAXCTRL, ctrl);
+    W32(HIFI_TRAX_BASE + HIFI_TRAXCTRL, 0U);
+    W32(HIFI_TRAX_BASE + HIFI_TRAXADDR, 0U);
+    W32(HIFI_TRAX_BASE + HIFI_TRAXCTRL, ctrl);
 }
 
 void hifi_trace_atb_stop(void)
 {
-    uint32_t ctrl = hifi_apbap_read(HIFI_TRAX_BASE + HIFI_TRAXCTRL);
+    uint32_t ctrl = R32(HIFI_TRAX_BASE + HIFI_TRAXCTRL);
     ctrl |= TRAXCTRL_TRSTP;
-    hifi_apbap_write(HIFI_TRAX_BASE + HIFI_TRAXCTRL, ctrl);
+    W32(HIFI_TRAX_BASE + HIFI_TRAXCTRL, ctrl);
 
     /* Wait for TRAXSTAT.TRACT to clear before returning. */
     uint32_t timeout = 100000U;
@@ -68,70 +68,30 @@ void hifi_trace_atb_stop(void)
 
 uint32_t hifi_trace_atb_status(void)
 {
-    return hifi_apbap_read(HIFI_TRAX_BASE + HIFI_TRAXSTAT);
-}
-
-void hifi_apbap_config(void)
-{
-    W32(HIFI_APB_AP_CSW, HIFI_APB_AP_CSW_VAL);
-}
-
-uint32_t hifi_apbap_idr(void)
-{
-    return R32(HIFI_APB_AP_IDR);
-}
-
-void hifi_apbap_write(uint32_t addr, uint32_t data)
-{
-    W32(HIFI_APB_AP_TAR, addr);
-    W32(HIFI_APB_AP_DRW, data);
-}
-
-uint32_t hifi_apbap_read(uint32_t addr)
-{
-    W32(HIFI_APB_AP_TAR, addr);
-    return R32(HIFI_APB_AP_DRW);
+    return R32(HIFI_TRAX_BASE + HIFI_TRAXSTAT);
 }
 
 void hifi_breakin_enable(void)
 {
-    uint32_t idr;
     uint32_t dsr;
     uint32_t dcr;
     uint32_t pwrstat;
 
-    /* Verify AP1 is present before using CSW/TAR/DRW. */
-    idr = hifi_apbap_idr();
-    c_uvm_info("hifi APB-AP IDR=0x%08x", idr);
-    if (idr == 0U) {
-        c_uvm_error("%s", "hifi APB-AP IDR is zero, AP is missing");
-        return;
-    }
-
-    hifi_apbap_config();
-
-    /* Verify the HIFI debug module is powered/accessible through AP1. */
-    dsr = hifi_apbap_read(HIFI_DSR);
-    c_uvm_info("hifi DSR=0x%08x", dsr);
-    if ((dsr & HIFI_DSR_DEBUG_POWER) == 0U) {
-        c_uvm_error("hifi DSR=0x%08x: debug module is not powered/accessible",
-                    dsr);
-        return;
-    }
-
     /*
-     * DCRSET is a bit-set register and is also a readable view of DCR.
-     * Writing bit16 sets DCR.BreakInEn; read back through AP1 to prove the
-     * write landed.
+     * The SOC has a direct ACPU path to the HIFI debug APB base.  Keep DSR
+     * and DCR readbacks so a failed access can be isolated in waveform.
      */
-    hifi_apbap_write(HIFI_DCRSET, HIFI_DCR_BREAKIN_EN);
-    dcr = hifi_apbap_read(HIFI_DCRSET);
+    dsr = R32(HIFI_DSR);
+    c_uvm_info("hifi DSR=0x%08x", dsr);
+
+    W32(HIFI_DCRSET, HIFI_DCR_BREAKIN_EN);
+    dcr = R32(HIFI_DCRSET);
     c_uvm_info("hifi BreakInEn: DCR=0x%08x", dcr);
     if ((dcr & HIFI_DCR_BREAKIN_EN) == 0U) {
         c_uvm_error("hifi BreakInEn readback failed: DCR=0x%08x", dcr);
     }
 
-    pwrstat = hifi_apbap_read(HIFI_PWRSTAT);
+    pwrstat = R32(HIFI_PWRSTAT);
     c_uvm_info("hifi PWRSTAT=0x%08x (DebugWasReset=%0d CoreWasReset=%0d)",
                pwrstat,
                (pwrstat & HIFI_PWRSTAT_DEBUG_WAS_RESET) != 0U,
