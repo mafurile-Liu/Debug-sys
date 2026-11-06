@@ -44,16 +44,16 @@ void hifi_trace_atb_start(uint8_t atid, uint8_t smper, bool enable_trace_ram)
 
     ctrl |= TRAXCTRL_TREN;
 
-    W32(HIFI_TRAX_BASE + HIFI_TRAXCTRL, 0U);
-    W32(HIFI_TRAX_BASE + HIFI_TRAXADDR, 0U);
-    W32(HIFI_TRAX_BASE + HIFI_TRAXCTRL, ctrl);
+    hifi_apbap_write(HIFI_TRAX_BASE + HIFI_TRAXCTRL, 0U);
+    hifi_apbap_write(HIFI_TRAX_BASE + HIFI_TRAXADDR, 0U);
+    hifi_apbap_write(HIFI_TRAX_BASE + HIFI_TRAXCTRL, ctrl);
 }
 
 void hifi_trace_atb_stop(void)
 {
-    uint32_t ctrl = R32(HIFI_TRAX_BASE + HIFI_TRAXCTRL);
+    uint32_t ctrl = hifi_apbap_read(HIFI_TRAX_BASE + HIFI_TRAXCTRL);
     ctrl |= TRAXCTRL_TRSTP;
-    W32(HIFI_TRAX_BASE + HIFI_TRAXCTRL, ctrl);
+    hifi_apbap_write(HIFI_TRAX_BASE + HIFI_TRAXCTRL, ctrl);
 
     /* Wait for TRAXSTAT.TRACT to clear before returning. */
     uint32_t timeout = 100000U;
@@ -68,7 +68,7 @@ void hifi_trace_atb_stop(void)
 
 uint32_t hifi_trace_atb_status(void)
 {
-    return R32(HIFI_TRAX_BASE + HIFI_TRAXSTAT);
+    return hifi_apbap_read(HIFI_TRAX_BASE + HIFI_TRAXSTAT);
 }
 
 void hifi_apbap_config(void)
