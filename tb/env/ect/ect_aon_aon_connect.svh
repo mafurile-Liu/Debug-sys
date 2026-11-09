@@ -129,8 +129,9 @@ initial begin
   force sys_aon_pwr_wrap.u_sys_aon_top.u_aon_m52_wrapper.u_MIZAR.u_pdcore.u_core_wrapper.gen_cti.u_cti.core_halted_rise
     = ect_if.cti_m52_evt_in[0];
 
-  force sys_aon_pwr_wrap.u_sys_aon_top.u_aon_m52_wrapper.u_MIZAR.u_pdcore.u_core_wrapper.gen_cti.u_cti.dwt_cmpmatch_i[3:2]
-    = ect_if.cti_m52_evt_in[3:2];
+  // Corrected ECT event mapping: dwt_cmpmatch_i[2:0] drives evt_in[3:1].
+  force sys_aon_pwr_wrap.u_sys_aon_top.u_aon_m52_wrapper.u_MIZAR.u_pdcore.u_core_wrapper.gen_cti.u_cti.dwt_cmpmatch_i[2:0]
+    = ect_if.cti_m52_evt_in[3:1];
 
   force sys_aon_pwr_wrap.u_sys_aon_top.u_aon_m52_wrapper.u_MIZAR.u_pdcore.u_core_wrapper.gen_cti.u_cti.etm_cti_extout_i[1:0]
     = ect_if.cti_m52_evt_in[5:4];

@@ -8,8 +8,8 @@
   event_in[3] -> channel[2]
   event_in[4] -> channel[3]
 
-event_in[1] is not connected in the current mapping.  No output mapping is
-programmed in this event-in-only case.
+event_in[1] (dwt_cmpmatch_i[0]) is connected but not exercised by this
+event-in-only case.
  */
 
 #include <stdint.h>
