@@ -53,15 +53,30 @@ class debug_ect_m52_chin_to_evtout0_3 extends aon_base_test;
         .expected_value(1'b0), .timeout_cycles(1000)
       );
 
-      // The directly mapped M52 CTI event output must pulse.
+      // M52 CTI output semantics differ by trigger:
+      //   out0: Processor Debug Halt Request, sticky until CTIINTACK
+      //   out1: Processor Restart Request, cleared when processor restarts
+      //   out2/3: Interrupt Requests, sticky until CTIINTACK
+      // Therefore only out1 is expected to return low automatically.
       env.ect_scoreboard.expect_event(
         .loc(ECT_M52_CTI_EVT_OUT), .index(evt_idx),
         .expected_value(1'b1), .timeout_cycles(1000)
       );
-      env.ect_scoreboard.expect_event(
-        .loc(ECT_M52_CTI_EVT_OUT), .index(evt_idx),
-        .expected_value(1'b0), .timeout_cycles(1000)
-      );
+
+      if (evt_idx == 1) begin
+        env.ect_scoreboard.expect_event(
+          .loc(ECT_M52_CTI_EVT_OUT), .index(evt_idx),
+          .expected_value(1'b0), .timeout_cycles(1000)
+        );
+      end
+      else begin
+        // These are sticky requests.  Ensure they are not released before
+        // software/debugger writes CTIINTACK.
+        env.ect_scoreboard.expect_no_event(
+          .loc(ECT_M52_CTI_EVT_OUT), .index(evt_idx),
+          .forbidden_value(1'b0), .timeout_cycles(1000)
+        );
+      end
 
       // Crosstalk: only the selected M52 channel input may pulse.
       for (ch = 0; ch < 4; ch++) begin
@@ -73,13 +88,22 @@ class debug_ect_m52_chin_to_evtout0_3 extends aon_base_test;
         end
       end
 
-      // Crosstalk: no other M52 event output may pulse.
+      // Crosstalk: no other M52 event output may have a new transition.
+      // Sticky outputs may remain high from an earlier injection, so check
+      // both unexpected rising and falling transitions for those outputs.
       for (out_idx = 0; out_idx < 8; out_idx++) begin
         if (out_idx != evt_idx) begin
           env.ect_scoreboard.expect_no_event(
             .loc(ECT_M52_CTI_EVT_OUT), .index(out_idx),
             .forbidden_value(1'b1), .timeout_cycles(1000)
           );
+
+          if ((out_idx == 0) || (out_idx == 2) || (out_idx == 3)) begin
+            env.ect_scoreboard.expect_no_event(
+              .loc(ECT_M52_CTI_EVT_OUT), .index(out_idx),
+              .forbidden_value(1'b0), .timeout_cycles(1000)
+            );
+          end
         end
       end
 
