@@ -1,15 +1,13 @@
 /*
- * debug_ect_m52_evtin0_2_3_4_to_ch/main.cpp
+ * debug_ect_m52_evtin0_1_2_3_to_ch/main.cpp
  *
- * Program M52 CTI input-to-channel routes:
+ * Program M52 CTI input-to-channel routes (corrected event mapping:
+ * dwt_cmpmatch_i[2:0] drives event_in[3:1]):
 
   event_in[0] -> channel[0]
-  event_in[2] -> channel[1]
-  event_in[3] -> channel[2]
-  event_in[4] -> channel[3]
-
-event_in[1] (dwt_cmpmatch_i[0]) is connected but not exercised by this
-event-in-only case.
+  event_in[1] -> channel[1]
+  event_in[2] -> channel[2]
+  event_in[3] -> channel[3]
  */
 
 #include <stdint.h>
@@ -34,7 +32,7 @@ static uint32_t m52_cti_read(uint32_t offset)
     return m52_ahbap_read(offset);
 }
 
-static const uint32_t m52_evt_in_idx[4] = {0U, 2U, 3U, 4U};
+static const uint32_t m52_evt_in_idx[4] = {0U, 1U, 2U, 3U};
 
 static void m52_cti_check_reg(const char *name,
                               uint32_t got,
@@ -97,6 +95,6 @@ CPU_TEST_START
 
     m52_cti_configure();
 
-    c_uvm_info("%s", "M52 CTI non-handshake event_in0/2/3/4 -> channel0..3 configured");
+    c_uvm_info("%s", "M52 CTI non-handshake event_in0/1/2/3 -> channel0..3 configured");
     C_PASS();
 COP_TEST_END

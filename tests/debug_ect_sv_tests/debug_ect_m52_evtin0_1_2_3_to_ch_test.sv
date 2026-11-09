@@ -1,22 +1,23 @@
-`ifndef debug_ect_m52_evtin0_2_3_4_to_ch_TEST_SV
-`define debug_ect_m52_evtin0_2_3_4_to_ch_TEST_SV
+`ifndef debug_ect_m52_evtin0_1_2_3_to_ch_TEST_SV
+`define debug_ect_m52_evtin0_1_2_3_to_ch_TEST_SV
 
 // ==========================================
 // M52 CTI event-in route test group 0
 // ==========================================
-// Routes programmed by C:
+// Routes programmed by C (corrected mapping: dwt_cmpmatch_i[2:0] drives
+// event_in[3:1]):
 //   event_in[0] -> channel[0]
-//   event_in[2] -> channel[1]
-//   event_in[3] -> channel[2]
-//   event_in[4] -> channel[3]
+//   event_in[1] -> channel[1]
+//   event_in[2] -> channel[2]
+//   event_in[3] -> channel[3]
 
 // This case checks only the input-to-channel path; no output route is enabled.
 // ==========================================
 
-class debug_ect_m52_evtin0_2_3_4_to_ch extends aon_base_test;
-  `uvm_component_utils(debug_ect_m52_evtin0_2_3_4_to_ch)
+class debug_ect_m52_evtin0_1_2_3_to_ch extends aon_base_test;
+  `uvm_component_utils(debug_ect_m52_evtin0_1_2_3_to_ch)
 
-  function new(string name = "debug_ect_m52_evtin0_2_3_4_to_ch",
+  function new(string name = "debug_ect_m52_evtin0_1_2_3_to_ch",
                uvm_component parent = null);
     super.new(name, parent);
   endfunction
@@ -28,7 +29,7 @@ class debug_ect_m52_evtin0_2_3_4_to_ch extends aon_base_test;
     int unsigned ch_idx;
     int unsigned ch;
     int unsigned out_idx;
-    int unsigned m52_evt_in_idx[4] = '{0, 2, 3, 4};
+    int unsigned m52_evt_in_idx[4] = '{0, 1, 2, 3};
 
     if (env.ect_scoreboard == null) begin
       `uvm_fatal("ECT_M52_EVTIN", "AON ECT scoreboard is not available")
