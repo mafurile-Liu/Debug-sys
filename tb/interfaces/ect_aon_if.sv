@@ -25,6 +25,11 @@ interface ect_aon_if(input logic clk, input logic clk_trace_aon, input logic rst
   logic [5:0] cti_m52_evt_in = '0;
   logic [7:0] cti_m52_evt_out;
 
+  // Second fan-out destination of CTI_M52 trigout[7:4] (event_out[7:4]
+  // drives both cti_etm_extin_o[3:0] and cti_core_trigout_o[7:4]).
+  // Observation only; bits [3:0] are tied low in the connect file.
+  logic [7:0] cti_m52_core_trigout;
+
   // CTM channel paths for CTI_AON.
   logic [15:0] ctm_aon_ch_in;
   logic [15:0] ctm_aon_ch_out;
@@ -58,6 +63,7 @@ interface ect_aon_if(input logic clk, input logic clk_trace_aon, input logic rst
     output ctm_top_ch_in,
     input  cti_aon_evt_out,
     input  cti_m52_evt_out,
+    input  cti_m52_core_trigout,
     input  ctm_aon_ch_out,
     input ctm_m52_ch_out,
     output ctm_m52_ch_in_drv,
@@ -77,6 +83,7 @@ interface ect_aon_if(input logic clk, input logic clk_trace_aon, input logic rst
     input cti_aon_evt_out,
     input cti_m52_evt_in,
     input cti_m52_evt_out,
+    input cti_m52_core_trigout,
     input ctm_aon_ch_in,
     input ctm_aon_ch_out,
     input ctm_m52_ch_in,

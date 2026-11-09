@@ -62,6 +62,8 @@
       forever begin
         @(posedge vif.clk_trace_aon);
         sample_loc(ECT_AON_CTI_EVT_OUT);
+        sample_loc(ECT_M52_CTI_EVT_OUT);
+        sample_loc(ECT_M52_CORE_TRIGOUT);
         sample_loc(ECT_CTM_AON_CH_IN);
         sample_loc(ECT_CTM_AON_CH_OUT);
         sample_loc(ECT_CTM_M52_CH_IN);

@@ -150,8 +150,11 @@ assign ect_if.cti_m52_evt_out[3:2] =
 assign ect_if.cti_m52_evt_out[7:4] =
   sys_aon_pwr_wrap.u_sys_aon_top.u_aon_m52_wrapper.u_MIZAR.u_pdcore.u_core_wrapper.gen_cti.u_cti.cti_etm_extin_o[3:0];
 
-assign sys_aon_pwr_wrap.u_sys_aon_top.u_aon_m52_wrapper.u_MIZAR.u_pdcore.u_core_wrapper.gen_cti.u_cti.cti_core_trigout_o[7:4] =
-  ect_if.cti_m52_evt_out[7:4];
+// CTI_M52 event_out[7:4] fans out to two destinations: cti_etm_extin_o[3:0]
+// (above) and cti_core_trigout_o[7:4] (below).  Both are DUT outputs, so
+// they are observed, never driven, by the TB.
+assign ect_if.cti_m52_core_trigout = {4'b0,
+  sys_aon_pwr_wrap.u_sys_aon_top.u_aon_m52_wrapper.u_MIZAR.u_pdcore.u_core_wrapper.gen_cti.u_cti.cti_core_trigout_o[7:4]};
 
 // The CTI_M52-side channel output is intentionally not connected here for
 // the same VCS XMRE reason.  The CTM-side ctm_m52_ch_in/out signals below

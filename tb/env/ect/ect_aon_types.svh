@@ -17,7 +17,8 @@
     ECT_AON_ACK_HIFI_CTI_IN   = 12,
     ECT_AON_ACK_HIFI_BREAK_IN = 13,
     ECT_AON_ACK_TBU           = 14,
-    ECT_CTM_M52_CH_IN_DRV     = 15
+    ECT_CTM_M52_CH_IN_DRV     = 15,
+    ECT_M52_CORE_TRIGOUT      = 16
   } ect_aon_loc_e;
 
   typedef enum int unsigned {
@@ -41,6 +42,7 @@
       ECT_AON_CTI_EVT_OUT : return 15;
       ECT_M52_CTI_EVT_IN  : return 6;
       ECT_M52_CTI_EVT_OUT : return 8;
+      ECT_M52_CORE_TRIGOUT : return 8;
       ECT_CTM_AON_CH_IN   : return 16;
       ECT_CTM_AON_CH_OUT  : return 16;
       ECT_CTM_M52_CH_IN   : return 4;
@@ -130,6 +132,7 @@
       ECT_AON_CTI_EVT_OUT : return vif.cti_aon_evt_out[index];
       ECT_M52_CTI_EVT_IN  : return vif.cti_m52_evt_in[index];
       ECT_M52_CTI_EVT_OUT : return vif.cti_m52_evt_out[index];
+      ECT_M52_CORE_TRIGOUT : return vif.cti_m52_core_trigout[index];
       ECT_CTM_AON_CH_IN   : return vif.ctm_aon_ch_in[index];
       ECT_CTM_AON_CH_OUT  : return vif.ctm_aon_ch_out[index];
       ECT_CTM_M52_CH_IN   : return vif.ctm_m52_ch_in[index];

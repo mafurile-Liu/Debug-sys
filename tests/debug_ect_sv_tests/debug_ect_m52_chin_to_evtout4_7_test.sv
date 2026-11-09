@@ -62,13 +62,24 @@ class debug_ect_m52_chin_to_evtout4_7 extends aon_base_test;
         .loc(ECT_CTM_M52_CH_OUT), .index(ch_idx),
         .expected_value(1'b0), .timeout_cycles(1000)
       );
-      // The directly mapped M52 CTI event output must assert.
+      // The directly mapped M52 CTI event output must assert and pulse.
       env.ect_scoreboard.expect_event(
         .loc(ECT_M52_CTI_EVT_OUT), .index(evt_idx),
         .expected_value(1'b1), .timeout_cycles(1000)
       );
       env.ect_scoreboard.expect_event(
         .loc(ECT_M52_CTI_EVT_OUT), .index(evt_idx),
+        .expected_value(1'b0), .timeout_cycles(1000)
+      );
+
+      // event_out[7:4] fans out to cti_core_trigout_o[7:4] as well as
+      // cti_etm_extin_o[3:0].  Both destinations must see the same pulse.
+      env.ect_scoreboard.expect_event(
+        .loc(ECT_M52_CORE_TRIGOUT), .index(evt_idx),
+        .expected_value(1'b1), .timeout_cycles(1000)
+      );
+      env.ect_scoreboard.expect_event(
+        .loc(ECT_M52_CORE_TRIGOUT), .index(evt_idx),
         .expected_value(1'b0), .timeout_cycles(1000)
       );
 
@@ -82,11 +93,16 @@ class debug_ect_m52_chin_to_evtout4_7 extends aon_base_test;
         end
       end
 
-      // Crosstalk: no other M52 event output may pulse.
+      // Crosstalk: no other M52 event output may pulse, and no other
+      // core_trigout destination may transition.
       for (out_idx = 0; out_idx < 8; out_idx++) begin
         if (out_idx != evt_idx) begin
           env.ect_scoreboard.expect_no_event(
             .loc(ECT_M52_CTI_EVT_OUT), .index(out_idx),
+            .forbidden_value(1'b1), .timeout_cycles(1000)
+          );
+          env.ect_scoreboard.expect_no_event(
+            .loc(ECT_M52_CORE_TRIGOUT), .index(out_idx),
             .forbidden_value(1'b1), .timeout_cycles(1000)
           );
         end
