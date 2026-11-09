@@ -66,15 +66,32 @@ class debug_ect_m52_evtin0_1_2_3_to_ch extends aon_base_test;
         .expected_value(1'b0), .timeout_cycles(1000)
       );
 
-      // CTM returns the selected channel to M52 CTI channel input.
+      // The CTM broadcasts the channel to the AON CTI and the top tree.
       env.ect_scoreboard.expect_event(
-        .loc(ECT_CTM_M52_CH_OUT), .index(ch_idx),
+        .loc(ECT_CTM_AON_CH_OUT), .index(ch_idx),
         .expected_value(1'b1), .timeout_cycles(1000)
       );
       env.ect_scoreboard.expect_event(
-        .loc(ECT_CTM_M52_CH_OUT), .index(ch_idx),
+        .loc(ECT_CTM_AON_CH_OUT), .index(ch_idx),
         .expected_value(1'b0), .timeout_cycles(1000)
       );
+      env.ect_scoreboard.expect_event(
+        .loc(ECT_CTM_TOP_CH_OUT), .index(ch_idx),
+        .expected_value(1'b1), .timeout_cycles(1000)
+      );
+      env.ect_scoreboard.expect_event(
+        .loc(ECT_CTM_TOP_CH_OUT), .index(ch_idx),
+        .expected_value(1'b0), .timeout_cycles(1000)
+      );
+
+      // No return route is programmed, so the M52 CTI channel input must
+      // stay quiet, including the selected channel.
+      for (ch = 0; ch < 4; ch++) begin
+        env.ect_scoreboard.expect_no_event(
+          .loc(ECT_CTM_M52_CH_OUT), .index(ch),
+          .forbidden_value(1'b1), .timeout_cycles(1000)
+        );
+      end
 
       // This event-in-only case does not program an output route.
       for (out_idx = 0; out_idx < 8; out_idx++) begin
@@ -84,8 +101,8 @@ class debug_ect_m52_evtin0_1_2_3_to_ch extends aon_base_test;
         );
       end
 
-      // Crosstalk: only the selected source channel and return channel may
-      // pulse.
+      // Crosstalk: only the selected channel may appear on the M52 channel
+      // output, the AON CTI channel input, and the top tree output.
       for (ch = 0; ch < 4; ch++) begin
         if (ch != ch_idx) begin
           env.ect_scoreboard.expect_no_event(
@@ -93,7 +110,11 @@ class debug_ect_m52_evtin0_1_2_3_to_ch extends aon_base_test;
             .forbidden_value(1'b1), .timeout_cycles(1000)
           );
           env.ect_scoreboard.expect_no_event(
-            .loc(ECT_CTM_M52_CH_OUT), .index(ch),
+            .loc(ECT_CTM_AON_CH_OUT), .index(ch),
+            .forbidden_value(1'b1), .timeout_cycles(1000)
+          );
+          env.ect_scoreboard.expect_no_event(
+            .loc(ECT_CTM_TOP_CH_OUT), .index(ch),
             .forbidden_value(1'b1), .timeout_cycles(1000)
           );
         end
