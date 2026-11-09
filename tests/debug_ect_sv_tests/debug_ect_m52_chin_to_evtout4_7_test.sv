@@ -31,9 +31,9 @@ class debug_ect_m52_chin_to_evtout4_7 extends aon_base_test;
       `uvm_fatal("ECT_M52_EVTOUT", "AON ECT scoreboard is not available")
     end
 
-    if (!$test$plusargs("ECT_M52_CH_IN_FORCE")) begin
+    if (!$test$plusargs("ECT_AON_ENABLE_SOURCE_FORCE")) begin
       `uvm_fatal("ECT_M52_EVTOUT",
-        "Missing +ECT_M52_CH_IN_FORCE; M52 channel input cannot be injected")
+        "Missing +ECT_AON_ENABLE_SOURCE_FORCE; top CTM channel input cannot be injected")
     end
 
     wait(c_test_finish == 1);
@@ -43,17 +43,26 @@ class debug_ect_m52_chin_to_evtout4_7 extends aon_base_test;
       ch_idx  = seq_idx;
       evt_idx = ch_idx + 4;
 
-      // Source channel request is observed by the monitor.
+      // Top CTM channel input and its propagation to M52 CTI channel input.
       env.ect_scoreboard.expect_event(
-        .loc(ECT_CTM_M52_CH_IN_DRV), .index(ch_idx),
+        .loc(ECT_CTM_TOP_CH_IN), .index(ch_idx),
         .expected_value(1'b1), .timeout_cycles(1000)
       );
       env.ect_scoreboard.expect_event(
-        .loc(ECT_CTM_M52_CH_IN_DRV), .index(ch_idx),
+        .loc(ECT_CTM_TOP_CH_IN), .index(ch_idx),
         .expected_value(1'b0), .timeout_cycles(1000)
       );
 
-      // The directly mapped M52 CTI event output must pulse.
+      // Top channel must propagate to the M52 CTI raw channel input.
+      env.ect_scoreboard.expect_event(
+        .loc(ECT_CTM_M52_CH_OUT), .index(ch_idx),
+        .expected_value(1'b1), .timeout_cycles(1000)
+      );
+      env.ect_scoreboard.expect_event(
+        .loc(ECT_CTM_M52_CH_OUT), .index(ch_idx),
+        .expected_value(1'b0), .timeout_cycles(1000)
+      );
+      // The directly mapped M52 CTI event output must assert.
       env.ect_scoreboard.expect_event(
         .loc(ECT_M52_CTI_EVT_OUT), .index(evt_idx),
         .expected_value(1'b1), .timeout_cycles(1000)
@@ -67,7 +76,7 @@ class debug_ect_m52_chin_to_evtout4_7 extends aon_base_test;
       for (ch = 0; ch < 4; ch++) begin
         if (ch != ch_idx) begin
           env.ect_scoreboard.expect_no_event(
-            .loc(ECT_CTM_M52_CH_IN_DRV), .index(ch),
+            .loc(ECT_CTM_TOP_CH_IN), .index(ch),
             .forbidden_value(1'b1), .timeout_cycles(1000)
           );
         end
@@ -85,13 +94,13 @@ class debug_ect_m52_chin_to_evtout4_7 extends aon_base_test;
 
       pulse_seq = ect_aon_pulse_sequence::type_id::create("pulse_seq");
       if (!pulse_seq.randomize() with {
-            loc          == ECT_CTM_M52_CH_IN_DRV;
+            loc          == ECT_CTM_TOP_CH_IN;
             index        == ch_idx;
             value        == 1'b1;
             pulse_cycles == 2;
           }) begin
         `uvm_error("ECT_M52_EVTOUT",
-          $sformatf("Failed to randomize M52 channel%0d pulse sequence", ch_idx))
+          $sformatf("Failed to randomize top CTM channel%0d pulse sequence", ch_idx))
       end
 
       pulse_seq.start(env.ect_agent.sequencer);
