@@ -506,6 +506,33 @@ void aon_trace_flush(void)
     tmc_flush(AON_ETR_BASE);
 }
 
+bool trace_sink_nonempty_check(uint32_t base,
+                               uint32_t bytes,
+                               const char *owner)
+{
+    const char *name = (owner != nullptr) ? owner : "trace";
+    uint32_t off;
+    uint32_t got;
+
+    if (bytes == 0U) {
+        c_uvm_error("%s trace sink check: zero-sized range", name);
+        return false;
+    }
+
+    for (off = 0U; off < bytes; off += 4U) {
+        got = R32((uintptr_t)(base + off));
+
+        if (got != 0U) {
+            c_uvm_info("%s trace sink check: first nonzero @0x%08x=0x%08x",
+                       name, base + off, got);
+            return true;
+        }
+    }
+
+    c_uvm_error("%s trace sink check: no nonzero data in 0x%08x..0x%08x",
+                name, base, base + bytes);
+    return false;
+}
 /* ----------------------------------------------------------------------
  * dbg_ss (SYS) trace tree startup.
  * Components: STM -> Funnel -> Replicator -> {ETF (port0), ETR->CATU (port1)}

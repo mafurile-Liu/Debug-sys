@@ -65,6 +65,13 @@ void dbg_ss_trace_init(trace_mode_t mode,
  * final AXI write to AON SRAM. */
 void aon_trace_flush(void);
 
+/* Generic trace-sink check. The sink can be AON SRAM, DDR, or any readable
+ * trace capture buffer. This does not decode trace packets; it reports an
+ * error if no nonzero 32-bit word exists in the requested range. */
+bool trace_sink_nonempty_check(uint32_t base,
+                               uint32_t bytes,
+                               const char *owner);
+
 void OPEN_DEBUG_CRG();
 
 /* Configure the M52 AHB-AP for 32-bit privileged data accesses. All
