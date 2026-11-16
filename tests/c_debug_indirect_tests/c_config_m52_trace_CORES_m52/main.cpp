@@ -118,7 +118,7 @@ COP_TEST_START
     m52_check_reg("DEMCR", m52_ahbap_read(M52_DEMCR),
                   M52_DEMCR_TRCENA, M52_DEMCR_TRCENA);
 
-    m52_read_fault_csrs();
+    //m52_read_fault_csrs();
 
     /* Enable all stimulus ports, then enable the ITM ATB interface. */
     m52_ahbap_write(M52_ITM_TPR, 0x0000000FU);
