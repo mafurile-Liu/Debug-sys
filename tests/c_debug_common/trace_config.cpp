@@ -237,20 +237,46 @@ void etr_scatter_list_build(uint32_t sla, uint32_t page_base, uint32_t num_pages
 }
 
 /* ----------------------------------------------------------------------
- * Prepare ETR trace read-back via RRD: stopping capture (TraceCaptEn=0)
- * and programming RRP makes each RRD APB read issue an AXI AR access at
- * RRP through the CATU, returning 32 bits of trace data (TRM 9.18.5:
- * RWP/RRP = "the AXI address used to access the trace memory with RRD
- * read accesses"). RRD reads are valid in Disabled or CB/SWF1 modes;
- * RRP advances one memory word (16B @ 128-bit ATB) per completed read.
+ * Prepare ETR trace read-back via RRD.
+ *
+ * TRM 9.18.3: an RRD read returns trace memory at RRP/RRPHI only in the
+ * Disabled state, or in CB mode while Stopped, or in SWF1. In any other
+ * state it returns 0xFFFFFFFF without issuing an AXI access.
+ * TRM 4.8.1 (register access dependencies): RRP/RRPHI are writable only
+ * when CTL.TraceCaptEn=0 and STS.TMCReady=1.
+ *
+ * Therefore stop capture, wait for TMCReady, then program RRP before the
+ * first RRD read. Skipping the wait leaves RRP at its previous value and
+ * the subsequent RRD reads can silently complete without any AXI AR.
  * ---------------------------------------------------------------------- */
 void tmc_etr_readback_start(uint32_t base, uint32_t rrp_addr)
 {
+    uint32_t timeout;
+    uint32_t sts = 0U;
+
     W32(base + TMC_CTL, 0U);            /* TraceCaptEn=0 -> Disabled state */
+
+    for (timeout = 1000U; timeout != 0U; --timeout) {
+        sts = R32(base + TMC_STS);
+        if ((sts & TMC_STS_TMCREADY) != 0U) {
+            break;
+        }
+    }
+
+    if (timeout == 0U) {
+        c_uvm_error("tmc_etr_readback_start: TMC at 0x%08x not ready, "
+                    "STS=0x%08x MODE=0x%08x",
+                    base, sts, R32(base + TMC_MODE));
+        return;
+    }
+
     W32(base + TMC_RRPHI, 0U);
     W32(base + TMC_RRP,  rrp_addr);
-    c_uvm_info("tmc_etr_readback_start: RRP=0x%08x (RRD reads now issue AXI AR)",
-               rrp_addr);
+
+    c_uvm_info("tmc_etr_readback_start: MODE=0x%08x STS=0x%08x "
+               "RRP=0x%08x (readback 0x%08x)",
+               R32(base + TMC_MODE), sts, rrp_addr,
+               R32(base + TMC_RRP));
 }
 
 /* ----------------------------------------------------------------------
