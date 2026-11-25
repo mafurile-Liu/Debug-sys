@@ -79,7 +79,25 @@
                  cycle < timeout && !ack_seen;
                  cycle++) begin
               @(posedge vif.clk);
-              ack_seen = ect_aon_sample_ack(vif, item.loc, item.index);
+              // Strict compare: an X/Z ack must time out instead of passing.
+              ack_seen = (ect_aon_sample_ack(vif, item.loc, item.index) === 1'b1);
+            end
+
+            // A handshake ack is a level acknowledgement that trails the
+            // request and keeps the request assertion width.  Hold the
+            // request a few extra cycles and verify the ack does not drop.
+            if (ack_seen) begin
+              for (int unsigned hold = 0;
+                   hold < item.ack_hold_cycles;
+                   hold++) begin
+                @(posedge vif.clk);
+                if (ect_aon_sample_ack(vif, item.loc, item.index) !== 1'b1) begin
+                  `uvm_error("ECT_AON_DRV", $sformatf(
+                    "Ack dropped while request held: loc=%s index=%0d hold_cycle=%0d",
+                    item.loc.name(), item.index, hold))
+                  break;
+                end
+              end
             end
 
             ect_aon_drive_bit(vif, item.loc, item.index, 1'b0);

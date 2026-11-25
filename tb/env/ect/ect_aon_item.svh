@@ -9,6 +9,7 @@
     rand int unsigned   pulse_cycles;
 
     int unsigned timeout_cycles;
+    int unsigned ack_hold_cycles;   // extra request-hold cycles after ack
     time         timestamp;
 
     constraint c_valid_index_c {
@@ -26,6 +27,7 @@
       `uvm_field_int(value,        UVM_DEFAULT)
       `uvm_field_int(pulse_cycles, UVM_DEFAULT)
       `uvm_field_int(timeout_cycles, UVM_DEFAULT)
+      `uvm_field_int(ack_hold_cycles, UVM_DEFAULT)
     `uvm_object_utils_end
 
     function new(string name = "ect_aon_item");
@@ -35,9 +37,9 @@
 
     virtual function string convert2string();
       return $sformatf(
-        "op=%s loc=%s index=%0d value=%0b pulse=%0d timeout=%0d @%0t",
+        "op=%s loc=%s index=%0d value=%0b pulse=%0d timeout=%0d ack_hold=%0d @%0t",
         op.name(), loc.name(), index, value,
-        pulse_cycles, timeout_cycles, timestamp
+        pulse_cycles, timeout_cycles, ack_hold_cycles, timestamp
       );
     endfunction
   endclass

@@ -44,13 +44,18 @@
   // Directed handshake sequence.  The selected event request is held high
   // until the mapped acknowledgement is observed or the timeout expires.
   class ect_aon_handshake_sequence extends uvm_sequence#(ect_aon_item);
-    rand ect_aon_loc_e loc            = ECT_AON_CTI_EVT_IN;
-    rand int unsigned  index          = 6;
-    rand int unsigned  timeout_cycles = 100;
+    rand ect_aon_loc_e loc             = ECT_AON_CTI_EVT_IN;
+    rand int unsigned  index           = 6;
+    rand int unsigned  timeout_cycles  = 100;
+    rand int unsigned  ack_hold_cycles = 0;
 
     constraint c_valid_index_c {
       index < ect_aon_loc_width(loc);
       ect_aon_ack_exists(loc, index);
+    }
+
+    constraint c_ack_hold_cycles_c {
+      ack_hold_cycles inside {[0:64]};
     }
 
     `uvm_object_utils(ect_aon_handshake_sequence)
@@ -68,8 +73,9 @@
       item.op             = ECT_OP_HANDSHAKE;
       item.loc            = loc;
       item.index          = index;
-      item.value          = 1'b1;
-      item.timeout_cycles = timeout_cycles;
+      item.value           = 1'b1;
+      item.timeout_cycles  = timeout_cycles;
+      item.ack_hold_cycles = ack_hold_cycles;
 
       finish_item(item);
     endtask
