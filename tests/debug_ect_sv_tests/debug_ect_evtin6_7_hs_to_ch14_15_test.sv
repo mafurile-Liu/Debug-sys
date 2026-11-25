@@ -66,6 +66,16 @@ class debug_ect_evtin6_7_hs_to_ch14_15 extends aon_base_test;
         .expected_value(1'b0), .timeout_cycles(1000)
       );
 
+      // The CTM broadcast must also reach the top-level channel output.
+      env.ect_scoreboard.expect_event(
+        .loc(ECT_CTM_TOP_CH_OUT), .index(ch_idx),
+        .expected_value(1'b1), .timeout_cycles(1000)
+      );
+      env.ect_scoreboard.expect_event(
+        .loc(ECT_CTM_TOP_CH_OUT), .index(ch_idx),
+        .expected_value(1'b0), .timeout_cycles(1000)
+      );
+
       // The handshake ack is mandatory.  The driver also raises an error if
       // this ack does not appear before its timeout.
       if (evt_idx == 6) begin
@@ -94,6 +104,10 @@ class debug_ect_evtin6_7_hs_to_ch14_15 extends aon_base_test;
         if (ch != ch_idx) begin
           env.ect_scoreboard.expect_no_event(
             .loc(ECT_CTM_AON_CH_IN), .index(ch),
+            .forbidden_value(1'b1), .timeout_cycles(2000)
+          );
+          env.ect_scoreboard.expect_no_event(
+            .loc(ECT_CTM_TOP_CH_OUT), .index(ch),
             .forbidden_value(1'b1), .timeout_cycles(2000)
           );
         end
