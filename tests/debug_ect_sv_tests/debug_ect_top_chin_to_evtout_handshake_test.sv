@@ -54,6 +54,12 @@ class debug_ect_top_chin_to_evtout_handshake extends aon_base_test;
         .loc(ECT_CTM_TOP_CH_IN), .index(evt_idx),
         .expected_value(1'b0), .timeout_cycles(2000)
       );
+      // A single request must produce exactly one pulse: reject a second
+      // rising edge on the selected channel input.
+      env.ect_scoreboard.expect_no_event(
+        .loc(ECT_CTM_TOP_CH_IN), .index(evt_idx),
+        .forbidden_value(1'b1), .timeout_cycles(2000)
+      );
 
       env.ect_scoreboard.expect_event(
         .loc(ECT_CTM_AON_CH_OUT), .index(evt_idx),
@@ -63,6 +69,10 @@ class debug_ect_top_chin_to_evtout_handshake extends aon_base_test;
         .loc(ECT_CTM_AON_CH_OUT), .index(evt_idx),
         .expected_value(1'b0), .timeout_cycles(2000)
       );
+      env.ect_scoreboard.expect_no_event(
+        .loc(ECT_CTM_AON_CH_OUT), .index(evt_idx),
+        .forbidden_value(1'b1), .timeout_cycles(2000)
+      );
 
       env.ect_scoreboard.expect_event(
         .loc(ECT_AON_CTI_EVT_OUT), .index(evt_idx),
@@ -71,6 +81,10 @@ class debug_ect_top_chin_to_evtout_handshake extends aon_base_test;
       env.ect_scoreboard.expect_event(
         .loc(ECT_AON_CTI_EVT_OUT), .index(evt_idx),
         .expected_value(1'b0), .timeout_cycles(2000)
+      );
+      env.ect_scoreboard.expect_no_event(
+        .loc(ECT_AON_CTI_EVT_OUT), .index(evt_idx),
+        .forbidden_value(1'b1), .timeout_cycles(2000)
       );
 
       // Only the selected source and AON channel input may pulse.
@@ -109,7 +123,9 @@ class debug_ect_top_chin_to_evtout_handshake extends aon_base_test;
 
       handshake_seq.start(env.ect_agent.sequencer);
 
-      repeat (1200) @(posedge env.ect_cfg.vif.clk);
+      // Outlive the 2000-cycle no-event windows so they cannot flag the
+      // next iteration's legitimate pulse.
+      repeat (2200) @(posedge env.ect_cfg.vif.clk);
 
       `uvm_info("ECT_TOP_HS",
         $sformatf("top channel%0d -> AON handshake event_out%0d completed", evt_idx, evt_idx),
