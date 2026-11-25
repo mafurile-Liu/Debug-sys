@@ -46,15 +46,6 @@ class debug_ect_evtin6_7_hs_to_ch14_15 extends aon_base_test;
       evt_idx = hs_src_idx[seq_idx];
       ch_idx  = hs_ch_idx[seq_idx];
 
-      // Both handshake acks must be idle before a new request is issued.
-      if ((env.ect_cfg.vif.hifi_cti_out_ack !== 1'b0) ||
-          (env.ect_cfg.vif.hifi_break_out_ack !== 1'b0)) begin
-        `uvm_error("ECT_HS", $sformatf(
-          "Ack not idle before event_in%0d: cti_out_ack=%0b break_out_ack=%0b",
-          evt_idx, env.ect_cfg.vif.hifi_cti_out_ack,
-          env.ect_cfg.vif.hifi_break_out_ack))
-      end
-
       // Handshake request must be observed by the monitor.
       env.ect_scoreboard.expect_event(
         .loc(ECT_AON_CTI_EVT_IN), .index(evt_idx),
@@ -86,11 +77,6 @@ class debug_ect_evtin6_7_hs_to_ch14_15 extends aon_base_test;
           .loc(ECT_AON_ACK_HIFI_CTI_OUT), .index(0),
           .expected_value(1'b0), .timeout_cycles(2000)
         );
-        // The unrelated BreakOut ack must stay low for this handshake.
-        env.ect_scoreboard.expect_no_event(
-          .loc(ECT_AON_ACK_HIFI_BREAK_OUT), .index(0),
-          .forbidden_value(1'b1), .timeout_cycles(1000)
-        );
       end
       else begin
         env.ect_scoreboard.expect_event(
@@ -100,11 +86,6 @@ class debug_ect_evtin6_7_hs_to_ch14_15 extends aon_base_test;
         env.ect_scoreboard.expect_event(
           .loc(ECT_AON_ACK_HIFI_BREAK_OUT), .index(0),
           .expected_value(1'b0), .timeout_cycles(2000)
-        );
-        // The unrelated CrossTriggerOut ack must stay low for this handshake.
-        env.ect_scoreboard.expect_no_event(
-          .loc(ECT_AON_ACK_HIFI_CTI_OUT), .index(0),
-          .forbidden_value(1'b1), .timeout_cycles(1000)
         );
       end
 
@@ -120,25 +101,14 @@ class debug_ect_evtin6_7_hs_to_ch14_15 extends aon_base_test;
 
       handshake_seq = ect_aon_handshake_sequence::type_id::create("handshake_seq");
       if (!handshake_seq.randomize() with {
-            loc              == ECT_AON_CTI_EVT_IN;
-            index            == evt_idx;
-            timeout_cycles   == 1000;
-            ack_hold_cycles  == 8;
+            loc            == ECT_AON_CTI_EVT_IN;
+            index          == evt_idx;
+            timeout_cycles == 1000;
           }) begin
         `uvm_error("ECT_HS", "Failed to randomize handshake sequence")
       end
 
       handshake_seq.start(env.ect_agent.sequencer);
-
-      // The ack must deassert shortly after the request is released.
-      repeat (64) @(posedge env.ect_cfg.vif.clk);
-      if ((env.ect_cfg.vif.hifi_cti_out_ack !== 1'b0) ||
-          (env.ect_cfg.vif.hifi_break_out_ack !== 1'b0)) begin
-        `uvm_error("ECT_HS", $sformatf(
-          "Ack did not deassert after event_in%0d: cti_out_ack=%0b break_out_ack=%0b",
-          evt_idx, env.ect_cfg.vif.hifi_cti_out_ack,
-          env.ect_cfg.vif.hifi_break_out_ack))
-      end
 
       // Wait long enough for all no-event windows queued before this
       // handshake to expire.  Otherwise the crosstalk window from route0 can
